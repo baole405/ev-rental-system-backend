@@ -6,7 +6,10 @@
   "main": "index.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "deploy": "doppler run -- node src/server.js",
+    "seed": "node src/scripts/seed.js",
+    "seed:dev": "doppler run -- node src/scripts/seed.js"
   },
   "repository": {
     "type": "git",
