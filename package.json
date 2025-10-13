@@ -23,6 +23,7 @@
   },
   "homepage": "https://github.com/baole405/ev-rental-system-backend#readme",
   "dependencies": {
+    "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",
     "mongoose": "^8.19.0"

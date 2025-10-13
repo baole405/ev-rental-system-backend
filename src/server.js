@@ -10,12 +10,14 @@ import stationRoutes from "./routes/station.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import userDocRoutes from "./routes/userDocument.routes.js";
 import vehicleRoutes from "./routes/vehicle.routes.js";
+import corsMiddleware from "./middleware/cors.middleware.js";
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT;
 
+app.use(corsMiddleware);
 app.use(express.json());
 
 app.get("/", (req, res) => {
