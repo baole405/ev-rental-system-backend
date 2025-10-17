@@ -15,7 +15,10 @@ export const applyPopulate = (query, populate) => {
   return query.populate(populate);
 };
 
-export const createCrudHandlers = (Model, { defaultSort = { createdAt: -1 }, populate } = {}) => {
+export const createCrudHandlers = (
+  Model,
+  { defaultSort = { createdAt: -1, _id: -1 }, populate } = {}
+) => {
   const list = async (req, res, next) => {
     try {
       let query = Model.find();
