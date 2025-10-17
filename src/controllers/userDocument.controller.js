@@ -15,7 +15,7 @@ export const listUserDocuments = async (req, res, next) => {
     }
 
     const documents = await UserDocument.find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .populate(USER_DOCUMENT_POPULATE);
 
     res.json({ data: documents });

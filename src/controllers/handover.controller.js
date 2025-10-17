@@ -21,7 +21,7 @@ export const listHandovers = async (req, res, next) => {
     }
 
     const handovers = await Handover.find(filter)
-      .sort({ createdAt: -1 })
+      .sort({ createdAt: -1, _id: -1 })
       .populate(HANDOVER_POPULATE);
 
     res.json({ data: handovers });

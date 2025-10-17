@@ -14,7 +14,7 @@ const hashPassword = (password) =>
 
 export const listUsers = async (req, res, next) => {
   try {
-    const users = await User.find().sort({ createdAt: -1 });
+    const users = await User.find().sort({ createdAt: -1, _id: -1 });
     res.json({ data: users.map(sanitizeUser) });
   } catch (error) {
     next(error);

@@ -2,7 +2,7 @@ import Vehicle from "../models/vehicle.model.js";
 
 export const listVehicles = async (req, res, next) => {
   try {
-    const vehicles = await Vehicle.find().sort({ createdAt: -1 });
+    const vehicles = await Vehicle.find().sort({ createdAt: -1, _id: -1 });
     res.json({ data: vehicles });
   } catch (error) {
     next(error);
