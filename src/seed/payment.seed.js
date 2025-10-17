@@ -1,8 +1,8 @@
 import Payment from "../models/payment.model.js";
-import Brand from "../models/brand.model.js";
 
 const DEFAULT_PAYMENTS = [
   {
+    bookingKey: "alice-early-june",
     rentalKey: "alice-june-trip",
     method: "card",
     status: "paid",
@@ -10,13 +10,15 @@ const DEFAULT_PAYMENTS = [
     txnRef: "EVPAY-20240601-0001",
   },
   {
+    bookingKey: "alice-august-getaway",
     rentalKey: "alice-august-ongoing",
     method: "card",
-    status: "pending",
+    status: "paid",
     surchargeAmount: 0,
     txnRef: null,
   },
   {
+    bookingKey: "minh-danang-weekend",
     rentalKey: "minh-danang-trip",
     method: "wallet",
     status: "paid",
@@ -25,50 +27,56 @@ const DEFAULT_PAYMENTS = [
   },
 ];
 
-export const seedPayments = async ({ rentalMap }) => {
+const computeAmountsFromBooking = (booking, overrideSurcharge) => {
+  const baseAmount = Number(booking.baseAmount ?? 0);
+  const depositAmount = Number(booking.depositAmount ?? 0);
+  const surchargeAmount =
+    overrideSurcharge ?? Number(booking.surchargeAmount ?? 0);
+
+  return {
+    baseAmount,
+    depositAmount,
+    surchargeAmount,
+    totalAmount: baseAmount + depositAmount + surchargeAmount,
+  };
+};
+
+export const seedPayments = async ({ bookingMap, rentalMap }) => {
   for (const payment of DEFAULT_PAYMENTS) {
-    const rental = rentalMap.get(payment.rentalKey);
-    if (!rental) {
+    const booking = bookingMap.get(payment.bookingKey);
+    if (!booking) {
       continue;
     }
 
-    const rentalBooking = rental.booking ?? null;
-    const rentalVehicle = rental.vehicle ?? null;
+    const rentalDoc = payment.rentalKey
+      ? rentalMap?.get(payment.rentalKey) ?? null
+      : null;
 
-    const brandId =
-      (rentalBooking?.brand?._id ?? rentalBooking?.brand) ??
-      (rentalVehicle?.brand?._id ?? rentalVehicle?.brand) ??
-      null;
-    const brand = brandId ? await Brand.findById(brandId) : null;
-
-    const rentalDays = Math.max(1, Number(rentalBooking?.rentalDays ?? 1));
-    const baseDailyRate = Number(brand?.baseDailyRate ?? 0);
-    const baseAmount =
-      payment.baseAmount ?? Math.round(baseDailyRate * rentalDays);
-    const depositAmount = Math.round(Number(brand?.depositAmount ?? 0));
-    const surchargeAmount = payment.surchargeAmount ?? 0;
-    const totalAmount =
-      payment.totalAmount ?? baseAmount + depositAmount + surchargeAmount;
+    const amounts = computeAmountsFromBooking(booking, payment.surchargeAmount);
 
     let doc = await Payment.findOneAndUpdate(
       {
-        rental: rental._id,
+        booking: booking._id,
         method: payment.method,
       },
       {
-        rental: rental._id,
+        booking: booking._id,
+        rental: rentalDoc?._id ?? null,
         method: payment.method,
         status: payment.status,
-        baseAmount,
-        depositAmount,
-        surchargeAmount,
-        totalAmount,
+        baseAmount: amounts.baseAmount,
+        depositAmount: amounts.depositAmount,
+        surchargeAmount: amounts.surchargeAmount,
+        totalAmount: amounts.totalAmount,
         txnRef: payment.txnRef ?? null,
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    doc = await doc.populate(["rental"]);
+    doc = await doc.populate([
+      { path: "booking", select: "_id" },
+      { path: "rental", select: "_id" },
+    ]);
   }
 
   const count = await Payment.estimatedDocumentCount();

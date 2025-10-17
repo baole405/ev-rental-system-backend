@@ -50,3 +50,18 @@ You can use these seeded documents to exercise relationships — for example:
 - Extend validation or business logic inside the controllers as requirements evolve.
 - Secure the endpoints (authentication/authorization) and replace placeholder password hashes when integrating with a user-facing application.
 - Add automated tests once a testing strategy is defined.
+
+## Thay Đổi Chính 18/10
+
+Bổ sung domain Brand (model/controller/route) với giá thuê ngày, tiền cọc… và expose qua Swagger để BE/FE cùng dùng (src/models/brand.model.js, src/controllers/brand.controller.js, src/routes/brand.routes.js, src/config/swagger.js).
+
+Gắn brand vào Vehicle và mở filter theo stationId/brandId; mọi response trả kèm thông tin thương hiệu (src/models/vehicle.model.js, src/controllers/vehicle.controller.js).
+
+Luồng Booking tự tính giá: lưu baseAmount, depositAmount, surchargeAmount, totalAmount; kiểm tra xe đúng thương hiệu; trả về “pricing” và “availability” (có fallback nếu trạm hết xe) (src/controllers/booking.controller.js, src/models/booking.model.js).
+
+Rental khi tạo sẽ tự chọn xe khả dụng của đúng brand (ưu tiên trạm pickup), cập nhật tình trạng xe/booking (src/controllers/rental.controller.js).
+
+Payment không nhận số tiền từ client nữa: tính lại dựa trên booking/brand số ngày thuê, tiền cọc, phụ phí; response bổ sung block pricing (src/controllers/payment.controller.js, src/models/payment.model.js).
+Swagger cập nhật toàn bộ schema/output mới cho Brands, Vehicles, Bookings, Payments… giúp FE hiểu rõ cấu trúc mới (src/config/swagger.js).
+
+Seed dữ liệu sinh thêm brand, gán brand vào vehicle/booking, tính trước giá, tiền cọc, phụ phí minh họa (VD VinFast VF3 590k/ngày + cọc 5M) (src/seed/*.js, src/seed/index.js).

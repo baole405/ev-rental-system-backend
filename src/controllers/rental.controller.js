@@ -1,6 +1,7 @@
 import Rental from "../models/rental.model.js";
 import Booking from "../models/booking.model.js";
 import Vehicle from "../models/vehicle.model.js";
+import Payment from "../models/payment.model.js";
 import { createCrudHandlers } from "../utils/crudFactory.js";
 
 const extractId = (value) => {
@@ -31,7 +32,7 @@ const RENTAL_POPULATE = [
   { path: "returnStation" },
 ];
 
-const { list, get, update, remove } = createCrudHandlers(Rental, {
+const { list, get, remove } = createCrudHandlers(Rental, {
   populate: RENTAL_POPULATE,
 });
 
@@ -107,9 +108,67 @@ const ensureVehicleForBooking = async (booking, requestedVehicleId) => {
   return { vehicle };
 };
 
+const normalizeCurrency = (value, fallback = 0) => {
+  if (value === undefined || value === null) {
+    return fallback;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return fallback;
+  }
+  return Math.round(parsed);
+};
+
+const normalizeOptionalNumber = (value, fallback = null) => {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  return parsed;
+};
+
+const computeBookingPricing = (booking) => {
+  const rentalDays = Math.max(1, Number(booking.rentalDays ?? 1));
+  let baseAmount = Number(booking.baseAmount ?? 0);
+  let depositAmount = Number(booking.depositAmount ?? 0);
+  let surchargeAmount = Number(booking.surchargeAmount ?? 0);
+
+  if ((!baseAmount || !depositAmount) && booking.brand) {
+    const dailyRate = Number(booking.brand.baseDailyRate ?? 0);
+    const deposit = Number(booking.brand.depositAmount ?? 0);
+    if (!baseAmount) {
+      baseAmount = Math.round(dailyRate * rentalDays);
+    }
+    if (!depositAmount) {
+      depositAmount = Math.round(deposit);
+    }
+  }
+
+  const totalAmount = baseAmount + depositAmount + surchargeAmount;
+
+  return { baseAmount, depositAmount, surchargeAmount, totalAmount };
+};
+
+const recalculateSettlement = (rental) => {
+  const extraCharges = normalizeCurrency(rental.extraCharges ?? 0, 0);
+  const lateFeeAmount = normalizeCurrency(rental.lateFeeAmount ?? 0, 0);
+  const depositAmount = normalizeCurrency(rental.depositAmount ?? 0, 0);
+
+  const totalDeductions = extraCharges + lateFeeAmount;
+  const refundAmount = Math.max(0, depositAmount - totalDeductions);
+  const amountDue = Math.max(0, totalDeductions - depositAmount);
+
+  rental.extraCharges = extraCharges;
+  rental.lateFeeAmount = lateFeeAmount;
+  rental.refundAmount = refundAmount;
+  rental.amountDue = amountDue;
+};
+
 export const listRentals = list;
 export const getRental = get;
-export const updateRental = update;
 export const deleteRental = remove;
 
 export const createRental = async (req, res, next) => {
@@ -127,6 +186,12 @@ export const createRental = async (req, res, next) => {
 
     if (!booking) {
       return res.status(400).json({ message: "Invalid booking specified" });
+    }
+
+    if (booking.status !== "confirmed") {
+      return res
+        .status(409)
+        .json({ message: "Booking must be confirmed before creating rental" });
     }
 
     const { vehicle, error } = await ensureVehicleForBooking(
@@ -151,6 +216,24 @@ export const createRental = async (req, res, next) => {
       await booking.save();
     }
 
+    const pricing = computeBookingPricing(booking);
+
+    const paidPayments = await Payment.find({
+      booking: booking._id,
+      status: "paid",
+    });
+
+    const paidAmount = paidPayments.reduce(
+      (sum, payment) => sum + Number(payment.totalAmount ?? 0),
+      0
+    );
+
+    if (paidAmount < pricing.totalAmount) {
+      return res
+        .status(409)
+        .json({ message: "Booking has not been fully paid yet" });
+    }
+
     const rentalPayload = {
       ...req.body,
       booking: booking._id,
@@ -159,12 +242,111 @@ export const createRental = async (req, res, next) => {
       pickupStation:
         req.body.pickupStation ??
         (booking.pickupStation?._id ?? booking.pickupStation),
+      baseAmount: pricing.baseAmount,
+      depositAmount: pricing.depositAmount,
+      surchargeAmount: pricing.surchargeAmount,
+      totalAmount: pricing.totalAmount,
+      paidAmount,
+      extraCharges: 0,
+      extraChargeNotes: null,
+      lateDays: 0,
+      lateFeeAmount: 0,
+      amountDue: 0,
+      refundAmount: 0,
     };
 
     const rental = await Rental.create(rentalPayload);
+    await Payment.updateMany(
+      { booking: booking._id, status: "paid", rental: null },
+      { rental: rental._id }
+    );
+
+    if (booking.status !== "confirmed") {
+      booking.status = "confirmed";
+      await booking.save();
+    }
+
     const populated = await rental.populate(RENTAL_POPULATE);
 
     res.status(201).json({ data: populated });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateRental = async (req, res, next) => {
+  try {
+    let rental = await Rental.findById(req.params.id);
+    if (!rental) {
+      return res.status(404).json({ message: "Rental not found" });
+    }
+
+    const updatableFields = [
+      "pickupTime",
+      "returnTime",
+      "pickupStation",
+      "returnStation",
+      "conditionNotes",
+      "status",
+      "extraChargeNotes",
+    ];
+
+    updatableFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        rental[field] = req.body[field];
+      }
+    });
+
+    if (req.body.extraCharges !== undefined) {
+      rental.extraCharges = normalizeCurrency(req.body.extraCharges, rental.extraCharges ?? 0);
+    }
+
+    if (req.body.lateFeeAmount !== undefined) {
+      rental.lateFeeAmount = normalizeCurrency(req.body.lateFeeAmount, rental.lateFeeAmount ?? 0);
+    }
+
+    if (req.body.depositAmount !== undefined) {
+      rental.depositAmount = normalizeCurrency(req.body.depositAmount, rental.depositAmount ?? 0);
+    }
+
+    if (req.body.odoStart !== undefined) {
+      rental.odoStart = normalizeOptionalNumber(req.body.odoStart, rental.odoStart ?? null);
+    }
+
+    if (req.body.odoEnd !== undefined) {
+      rental.odoEnd = normalizeOptionalNumber(req.body.odoEnd, rental.odoEnd ?? null);
+    }
+
+    if (req.body.lateDays !== undefined) {
+      const parsedLateDays = normalizeOptionalNumber(req.body.lateDays, rental.lateDays ?? 0);
+      rental.lateDays = Math.max(0, Math.round(parsedLateDays ?? 0));
+    }
+
+    const paidPayments = await Payment.find({
+      booking: rental.booking,
+      status: "paid",
+    });
+
+    rental.paidAmount = paidPayments.reduce(
+      (sum, payment) => sum + Number(payment.totalAmount ?? 0),
+      0
+    );
+
+    recalculateSettlement(rental);
+
+    if (
+      req.body.returnTime &&
+      !req.body.status &&
+      rental.status === "ongoing"
+    ) {
+      rental.status = "completed";
+    }
+
+    await rental.save();
+
+    rental = await rental.populate(RENTAL_POPULATE);
+
+    res.json({ data: rental });
   } catch (error) {
     next(error);
   }

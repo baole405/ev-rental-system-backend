@@ -29,7 +29,7 @@ export const seedDatabase = async () => {
   });
 
   await seedHandovers({ rentalMap, vehicleMap, userMap });
-  await seedPayments({ rentalMap });
+  await seedPayments({ bookingMap, rentalMap });
 };
 
 export default seedDatabase;

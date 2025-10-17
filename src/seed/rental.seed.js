@@ -65,10 +65,23 @@ export const seedRentals = async ({
       continue;
     }
 
+    const bookingDoc = rental.bookingKey
+      ? bookingMap.get(rental.bookingKey) ?? null
+      : null;
+
+    const baseAmount = Number(bookingDoc?.baseAmount ?? 0);
+    const depositAmount = Number(bookingDoc?.depositAmount ?? 0);
+    const surchargeAmount = Number(bookingDoc?.surchargeAmount ?? 0);
+    const totalAmount = baseAmount + depositAmount + surchargeAmount;
+
+    const extraChargesSeed = Number(rental.extraCharges ?? 0);
+    const lateFeeSeed = Number(rental.lateFeeAmount ?? 0);
+    const totalDeductionsSeed = extraChargesSeed + lateFeeSeed;
+    const refundAmountSeed = Math.max(0, depositAmount - totalDeductionsSeed);
+    const amountDueSeed = Math.max(0, totalDeductionsSeed - depositAmount);
+
     const payload = {
-      booking: rental.bookingKey
-        ? bookingMap.get(rental.bookingKey)?._id ?? null
-        : null,
+      booking: bookingDoc?._id ?? null,
       renter: renter._id,
       vehicle: vehicle._id,
       pickupStation: pickupStation._id,
@@ -79,6 +92,17 @@ export const seedRentals = async ({
       odoEnd: rental.odoEnd ?? null,
       conditionNotes: rental.conditionNotes ?? null,
       status: rental.status,
+      baseAmount,
+      depositAmount,
+      surchargeAmount,
+      totalAmount,
+      paidAmount: totalAmount,
+      extraCharges: extraChargesSeed,
+      extraChargeNotes: rental.extraChargeNotes ?? null,
+      lateDays: rental.lateDays ?? 0,
+      lateFeeAmount: lateFeeSeed,
+      amountDue: amountDueSeed,
+      refundAmount: refundAmountSeed,
     };
 
     let doc = await Rental.findOneAndUpdate(

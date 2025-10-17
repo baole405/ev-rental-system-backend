@@ -479,6 +479,17 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
             odoStart: { type: "number", nullable: true },
             odoEnd: { type: "number", nullable: true },
             conditionNotes: { type: "string", nullable: true },
+            baseAmount: { type: "number", minimum: 0 },
+            depositAmount: { type: "number", minimum: 0 },
+            surchargeAmount: { type: "number", minimum: 0 },
+            totalAmount: { type: "number", minimum: 0 },
+            paidAmount: { type: "number", minimum: 0 },
+            extraCharges: { type: "number", minimum: 0 },
+            extraChargeNotes: { type: "string", nullable: true },
+            lateDays: { type: "integer", minimum: 0 },
+            lateFeeAmount: { type: "number", minimum: 0 },
+            amountDue: { type: "number", minimum: 0 },
+            refundAmount: { type: "number", minimum: 0 },
             status: {
               type: "string",
               enum: ["ongoing", "completed", "cancelled", "overdue"],
@@ -492,6 +503,10 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
             "vehicle",
             "pickupStation",
             "pickupTime",
+            "baseAmount",
+            "depositAmount",
+            "surchargeAmount",
+            "totalAmount",
             "status",
             "createdAt",
             "updatedAt",
@@ -577,10 +592,23 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
           type: "object",
           properties: {
             _id: { type: "string" },
-            rental: {
+            booking: {
               oneOf: [
                 { type: "string" },
+                { $ref: "#/components/schemas/Booking" },
+              ],
+            },
+            rental: {
+              oneOf: [
+                { type: "string", nullable: true },
                 { $ref: "#/components/schemas/Rental" },
+              ],
+            },
+            processedBy: {
+              description: "Staff member who processed the payment.",
+              oneOf: [
+                { type: "string", nullable: true },
+                { $ref: "#/components/schemas/User" },
               ],
             },
             method: {
@@ -605,7 +633,7 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
           },
           required: [
             "_id",
-            "rental",
+            "booking",
             "method",
             "status",
             "baseAmount",
@@ -619,7 +647,9 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
         PaymentInput: {
           type: "object",
           properties: {
+            booking: { type: "string" },
             rental: { type: "string" },
+            processedBy: { type: "string" },
             method: {
               type: "string",
               enum: ["cash", "card", "wallet", "transfer"],
@@ -631,7 +661,7 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
             surchargeAmount: { type: "number", minimum: 0 },
             txnRef: { type: "string" },
           },
-          required: ["rental", "method"],
+          required: ["booking", "method"],
         },
       },
     },
