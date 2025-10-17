@@ -5,6 +5,7 @@ import express from "express";
 import connectDB from "./config/mongodb.js";
 import { createSwaggerSpec, createSwaggerUiHtml } from "./config/swagger.js";
 import bookingRoutes from "./routes/booking.routes.js";
+import brandRoutes from "./routes/brand.routes.js";
 import handoverRoutes from "./routes/handover.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import rentalRoutes from "./routes/rental.routes.js";
@@ -47,6 +48,7 @@ app.use("/api/booking", bookingRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/booking", bookingRoutes); // legacy support
 app.use("/api/handovers", handoverRoutes);
+app.use("/api/brands", brandRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/rentals", rentalRoutes);
 app.use("/api/stations", stationRoutes);

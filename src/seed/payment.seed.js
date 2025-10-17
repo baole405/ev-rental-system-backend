@@ -1,31 +1,26 @@
 import Payment from "../models/payment.model.js";
+import Brand from "../models/brand.model.js";
 
 const DEFAULT_PAYMENTS = [
   {
     rentalKey: "alice-june-trip",
     method: "card",
     status: "paid",
-    baseAmount: 450000,
     surchargeAmount: 50000,
-    totalAmount: 500000,
     txnRef: "EVPAY-20240601-0001",
   },
   {
     rentalKey: "alice-august-ongoing",
     method: "card",
     status: "pending",
-    baseAmount: 0,
     surchargeAmount: 0,
-    totalAmount: 0,
     txnRef: null,
   },
   {
     rentalKey: "minh-danang-trip",
     method: "wallet",
     status: "paid",
-    baseAmount: 620000,
     surchargeAmount: 30000,
-    totalAmount: 650000,
     txnRef: "EVPAY-20240817-0003",
   },
 ];
@@ -37,6 +32,24 @@ export const seedPayments = async ({ rentalMap }) => {
       continue;
     }
 
+    const rentalBooking = rental.booking ?? null;
+    const rentalVehicle = rental.vehicle ?? null;
+
+    const brandId =
+      (rentalBooking?.brand?._id ?? rentalBooking?.brand) ??
+      (rentalVehicle?.brand?._id ?? rentalVehicle?.brand) ??
+      null;
+    const brand = brandId ? await Brand.findById(brandId) : null;
+
+    const rentalDays = Math.max(1, Number(rentalBooking?.rentalDays ?? 1));
+    const baseDailyRate = Number(brand?.baseDailyRate ?? 0);
+    const baseAmount =
+      payment.baseAmount ?? Math.round(baseDailyRate * rentalDays);
+    const depositAmount = Math.round(Number(brand?.depositAmount ?? 0));
+    const surchargeAmount = payment.surchargeAmount ?? 0;
+    const totalAmount =
+      payment.totalAmount ?? baseAmount + depositAmount + surchargeAmount;
+
     let doc = await Payment.findOneAndUpdate(
       {
         rental: rental._id,
@@ -46,9 +59,10 @@ export const seedPayments = async ({ rentalMap }) => {
         rental: rental._id,
         method: payment.method,
         status: payment.status,
-        baseAmount: payment.baseAmount,
-        surchargeAmount: payment.surchargeAmount,
-        totalAmount: payment.totalAmount,
+        baseAmount,
+        depositAmount,
+        surchargeAmount,
+        totalAmount,
         txnRef: payment.txnRef ?? null,
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }

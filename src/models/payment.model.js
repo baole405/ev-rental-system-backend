@@ -22,6 +22,11 @@ const paymentSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    depositAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     surchargeAmount: {
       type: Number,
       default: 0,
