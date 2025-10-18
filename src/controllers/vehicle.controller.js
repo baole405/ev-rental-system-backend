@@ -2,14 +2,19 @@ import Vehicle from "../models/vehicle.model.js";
 
 export const listVehicles = async (req, res, next) => {
   try {
-    const { stationId } = req.query;
+    const { stationId, brandId } = req.query;
     const filter = {};
 
     if (stationId) {
       filter.stationId = stationId;
     }
+    if (brandId) {
+      filter.brand = brandId;
+    }
 
-    const vehicles = await Vehicle.find(filter).sort({ createdAt: -1, _id: -1 });
+    const vehicles = await Vehicle.find(filter)
+      .sort({ createdAt: -1, _id: -1 })
+      .populate("brand");
     res.json({ data: vehicles });
   } catch (error) {
     next(error);
@@ -18,7 +23,7 @@ export const listVehicles = async (req, res, next) => {
 
 export const getVehicle = async (req, res, next) => {
   try {
-    const vehicle = await Vehicle.findById(req.params.id);
+    const vehicle = await Vehicle.findById(req.params.id).populate("brand");
     if (!vehicle) {
       return res.status(404).json({ message: "Vehicle not found" });
     }
@@ -32,7 +37,8 @@ export const createVehicle = async (req, res, next) => {
   try {
     const payload = req.body;
     const vehicle = await Vehicle.create(payload);
-    res.status(201).json({ data: vehicle });
+    const populated = await vehicle.populate("brand");
+    res.status(201).json({ data: populated });
   } catch (error) {
     next(error);
   }
@@ -41,10 +47,10 @@ export const createVehicle = async (req, res, next) => {
 export const updateVehicle = async (req, res, next) => {
   try {
     const payload = req.body;
-    const vehicle = await Vehicle.findByIdAndUpdate(req.params.id, payload, {
+    let vehicle = await Vehicle.findByIdAndUpdate(req.params.id, payload, {
       new: true,
       runValidators: true,
-    });
+    }).populate("brand");
 
     if (!vehicle) {
       return res.status(404).json({ message: "Vehicle not found" });

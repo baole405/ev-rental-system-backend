@@ -7,6 +7,11 @@ const vehicleSchema = new mongoose.Schema(
       default: null,
       trim: true,
     },
+    brand: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Brand",
+      required: true,
+    },
     vin: {
       type: String,
       trim: true,

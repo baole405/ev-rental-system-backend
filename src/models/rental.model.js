@@ -49,6 +49,61 @@ const rentalSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    baseAmount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    depositAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    surchargeAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    totalAmount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    paidAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    extraCharges: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    extraChargeNotes: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    lateDays: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    lateFeeAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    amountDue: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    refundAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     status: {
       type: String,
       enum: ["ongoing", "completed", "cancelled", "overdue"],

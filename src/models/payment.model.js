@@ -2,10 +2,20 @@ import mongoose from "mongoose";
 
 const paymentSchema = new mongoose.Schema(
   {
+    booking: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Booking",
+      required: true,
+    },
     rental: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Rental",
-      required: true,
+      default: null,
+    },
+    processedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
     },
     method: {
       type: String,
@@ -22,6 +32,11 @@ const paymentSchema = new mongoose.Schema(
       required: true,
       min: 0,
     },
+    depositAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     surchargeAmount: {
       type: Number,
       default: 0,
@@ -35,6 +50,7 @@ const paymentSchema = new mongoose.Schema(
     txnRef: {
       type: String,
       default: null,
+      trim: true,
     },
   },
   {
@@ -42,6 +58,10 @@ const paymentSchema = new mongoose.Schema(
     versionKey: false,
   }
 );
+
+paymentSchema.index({ booking: 1, rental: 1 });
+paymentSchema.index({ booking: 1, status: 1 });
+paymentSchema.index({ processedBy: 1, createdAt: -1 });
 
 export const Payment = mongoose.model("Payment", paymentSchema);
 

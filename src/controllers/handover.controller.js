@@ -3,6 +3,7 @@ import Handover from "../models/handover.model.js";
 import Rental from "../models/rental.model.js";
 import Vehicle from "../models/vehicle.model.js";
 import Station from "../models/station.model.js";
+import User from "../models/user.model.js";
 
 const HANDOVER_POPULATE = [
   { path: "rental" },
@@ -58,10 +59,10 @@ const normalizeFilePath = (filePath) => {
 export const createHandover = async (req, res, next) => {
   try {
     const { rental, stationId, type, notes, staff } = req.body;
-    if (!rental || !stationId || !type) {
+    if (!rental || !stationId || !type || !staff) {
       return res
         .status(400)
-        .json({ message: "rental, stationId and type are required to create a handover" });
+        .json({ message: "rental, stationId, type and staff are required to create a handover" });
     }
 
     const rentalDoc = await Rental.findById(rental);
@@ -79,6 +80,11 @@ export const createHandover = async (req, res, next) => {
       return res.status(404).json({ message: "Vehicle not found for rental" });
     }
 
+    const staffDoc = await User.findById(staff);
+    if (!staffDoc) {
+      return res.status(404).json({ message: "Staff not found" });
+    }
+
     const odoReading = normalizeNumberField(req.body.odoReading);
     const batteryPercent = normalizeNumberField(req.body.batteryPercent);
     const photos = Array.isArray(req.files)
@@ -89,7 +95,7 @@ export const createHandover = async (req, res, next) => {
       rental: rentalDoc._id,
       vehicle: vehicleDoc._id,
       stationId: stationDoc._id,
-      staff: staff || null,
+      staff: staffDoc._id,
       type,
       notes: notes ?? null,
       photos,
@@ -145,6 +151,13 @@ export const createHandover = async (req, res, next) => {
 
 export const updateHandover = async (req, res, next) => {
   try {
+    if (req.body.staff) {
+      const staffDoc = await User.findById(req.body.staff);
+      if (!staffDoc) {
+        return res.status(404).json({ message: "Staff not found" });
+      }
+    }
+
     const handover = await Handover.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,

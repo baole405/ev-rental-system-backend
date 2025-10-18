@@ -44,6 +44,10 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
         description: "Electric vehicles available for rental.",
       },
       {
+        name: "Brands",
+        description: "Vehicle brands and pricing profiles.",
+      },
+      {
         name: "Bookings",
         description: "Reservations placed by renters before pickup.",
       },
@@ -225,6 +229,41 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
           },
           required: ["code", "name"],
         },
+        Brand: {
+          type: "object",
+          properties: {
+            _id: { type: "string" },
+            code: { type: "string" },
+            name: { type: "string" },
+            description: { type: "string", nullable: true },
+            baseDailyRate: { type: "number", minimum: 0 },
+            depositAmount: { type: "number", minimum: 0 },
+            imageUrl: { type: "string", nullable: true },
+            createdAt: { type: "string", format: "date-time" },
+            updatedAt: { type: "string", format: "date-time" },
+          },
+          required: [
+            "_id",
+            "code",
+            "name",
+            "baseDailyRate",
+            "depositAmount",
+            "createdAt",
+            "updatedAt",
+          ],
+        },
+        BrandInput: {
+          type: "object",
+          properties: {
+            code: { type: "string" },
+            name: { type: "string" },
+            description: { type: "string" },
+            baseDailyRate: { type: "number", minimum: 0 },
+            depositAmount: { type: "number", minimum: 0 },
+            imageUrl: { type: "string" },
+          },
+          required: ["code", "name", "baseDailyRate"],
+        },
         Vehicle: {
           type: "object",
           properties: {
@@ -239,12 +278,20 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
               enum: ["available", "maintenance", "rented", "unavailable"],
             },
             odometer: { type: "number" },
+            brand: {
+              description: "Brand profile associated with the vehicle.",
+              oneOf: [
+                { type: "string" },
+                { $ref: "#/components/schemas/Brand" },
+              ],
+            },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
           },
           required: [
             "_id",
             "model",
+            "brand",
             "batteryPercent",
             "status",
             "odometer",
@@ -265,8 +312,9 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
               enum: ["available", "maintenance", "rented", "unavailable"],
             },
             odometer: { type: "number", minimum: 0 },
+            brand: { type: "string" },
           },
-          required: ["model"],
+          required: ["model", "brand"],
         },
         Booking: {
           type: "object",
@@ -277,6 +325,13 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
               oneOf: [
                 { type: "string" },
                 { $ref: "#/components/schemas/User" },
+              ],
+            },
+            brand: {
+              description: "Selected brand (vehicle model) for the booking.",
+              oneOf: [
+                { type: "string" },
+                { $ref: "#/components/schemas/Brand" },
               ],
             },
             pickupStation: {
@@ -295,9 +350,21 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
             },
             pickupTimeExpected: { type: "string", format: "date-time" },
             rentalDays: { type: "integer", minimum: 1 },
+            baseAmount: { type: "number", minimum: 0 },
+            depositAmount: { type: "number", minimum: 0 },
+            surchargeAmount: { type: "number", minimum: 0 },
+            totalAmount: { type: "number", minimum: 0 },
             status: {
               type: "string",
               enum: ["pending", "confirmed", "cancelled", "expired"],
+            },
+            pricing: {
+              description: "Denormalized pricing breakdown for convenience.",
+              $ref: "#/components/schemas/BookingPricing",
+            },
+            availability: {
+              description: "Availability summary for the requested brand at the pickup station.",
+              $ref: "#/components/schemas/BookingAvailability",
             },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
@@ -305,8 +372,14 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
           required: [
             "_id",
             "renter",
+            "brand",
             "pickupStation",
             "pickupTimeExpected",
+            "rentalDays",
+            "baseAmount",
+            "depositAmount",
+            "surchargeAmount",
+            "totalAmount",
             "status",
             "createdAt",
             "updatedAt",
@@ -318,14 +391,53 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
             renter: { type: "string" },
             pickupStation: { type: "string" },
             vehicle: { type: "string" },
+            brand: { type: "string" },
             pickupTimeExpected: { type: "string", format: "date-time" },
             rentalDays: { type: "integer", minimum: 1 },
+            surchargeAmount: { type: "number", minimum: 0 },
             status: {
               type: "string",
               enum: ["pending", "confirmed", "cancelled", "expired"],
             },
           },
-          required: ["renter", "pickupStation", "pickupTimeExpected"],
+          required: ["renter", "pickupStation", "brand", "pickupTimeExpected"],
+        },
+        BookingPricing: {
+          type: "object",
+          properties: {
+            baseAmount: { type: "number", minimum: 0 },
+            depositAmount: { type: "number", minimum: 0 },
+            surchargeAmount: { type: "number", minimum: 0 },
+            totalAmount: { type: "number", minimum: 0 },
+          },
+          required: [
+            "baseAmount",
+            "depositAmount",
+            "surchargeAmount",
+            "totalAmount",
+          ],
+        },
+        BookingAvailability: {
+          type: "object",
+          properties: {
+            stationCode: { type: "string", nullable: true },
+            availableVehicleCount: { type: "integer", minimum: 0 },
+            isAvailable: { type: "boolean" },
+            fallbackVehicles: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  _id: { type: "string" },
+                  vin: { type: "string" },
+                  model: { type: "string" },
+                  stationId: { type: "string", nullable: true },
+                  status: { type: "string" },
+                },
+              },
+            },
+          },
+          required: ["availableVehicleCount", "isAvailable"],
         },
         Rental: {
           type: "object",
@@ -367,6 +479,17 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
             odoStart: { type: "number", nullable: true },
             odoEnd: { type: "number", nullable: true },
             conditionNotes: { type: "string", nullable: true },
+            baseAmount: { type: "number", minimum: 0 },
+            depositAmount: { type: "number", minimum: 0 },
+            surchargeAmount: { type: "number", minimum: 0 },
+            totalAmount: { type: "number", minimum: 0 },
+            paidAmount: { type: "number", minimum: 0 },
+            extraCharges: { type: "number", minimum: 0 },
+            extraChargeNotes: { type: "string", nullable: true },
+            lateDays: { type: "integer", minimum: 0 },
+            lateFeeAmount: { type: "number", minimum: 0 },
+            amountDue: { type: "number", minimum: 0 },
+            refundAmount: { type: "number", minimum: 0 },
             status: {
               type: "string",
               enum: ["ongoing", "completed", "cancelled", "overdue"],
@@ -380,6 +503,10 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
             "vehicle",
             "pickupStation",
             "pickupTime",
+            "baseAmount",
+            "depositAmount",
+            "surchargeAmount",
+            "totalAmount",
             "status",
             "createdAt",
             "updatedAt",
@@ -465,10 +592,23 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
           type: "object",
           properties: {
             _id: { type: "string" },
-            rental: {
+            booking: {
               oneOf: [
                 { type: "string" },
+                { $ref: "#/components/schemas/Booking" },
+              ],
+            },
+            rental: {
+              oneOf: [
+                { type: "string", nullable: true },
                 { $ref: "#/components/schemas/Rental" },
+              ],
+            },
+            processedBy: {
+              description: "Staff member who processed the payment.",
+              oneOf: [
+                { type: "string", nullable: true },
+                { $ref: "#/components/schemas/User" },
               ],
             },
             method: {
@@ -480,18 +620,24 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
               enum: ["pending", "paid", "failed", "refunded"],
             },
             baseAmount: { type: "number" },
+            depositAmount: { type: "number" },
             surchargeAmount: { type: "number" },
             totalAmount: { type: "number" },
+            pricing: {
+              description: "Convenience pricing summary duplicated from base/surcharge/total fields.",
+              $ref: "#/components/schemas/BookingPricing",
+            },
             txnRef: { type: "string", nullable: true },
             createdAt: { type: "string", format: "date-time" },
             updatedAt: { type: "string", format: "date-time" },
           },
           required: [
             "_id",
-            "rental",
+            "booking",
             "method",
             "status",
             "baseAmount",
+            "depositAmount",
             "surchargeAmount",
             "totalAmount",
             "createdAt",
@@ -501,7 +647,9 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
         PaymentInput: {
           type: "object",
           properties: {
+            booking: { type: "string" },
             rental: { type: "string" },
+            processedBy: { type: "string" },
             method: {
               type: "string",
               enum: ["cash", "card", "wallet", "transfer"],
@@ -510,12 +658,10 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
               type: "string",
               enum: ["pending", "paid", "failed", "refunded"],
             },
-            baseAmount: { type: "number", minimum: 0 },
             surchargeAmount: { type: "number", minimum: 0 },
-            totalAmount: { type: "number", minimum: 0 },
             txnRef: { type: "string" },
           },
-          required: ["rental", "method", "baseAmount", "totalAmount"],
+          required: ["booking", "method"],
         },
       },
     },
@@ -1047,6 +1193,177 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
             },
             404: {
               description: "Station not found",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/api/brands": {
+        get: {
+          tags: ["Brands"],
+          summary: "List brands",
+          responses: {
+            200: {
+              description: "Array of brands",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      data: {
+                        type: "array",
+                        items: { $ref: "#/components/schemas/Brand" },
+                      },
+                    },
+                    required: ["data"],
+                  },
+                },
+              },
+            },
+          },
+        },
+        post: {
+          tags: ["Brands"],
+          summary: "Create brand",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/BrandInput" },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: "Created brand",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      data: { $ref: "#/components/schemas/Brand" },
+                    },
+                    required: ["data"],
+                  },
+                },
+              },
+            },
+            400: {
+              description: "Validation error",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/api/brands/{id}": {
+        get: {
+          tags: ["Brands"],
+          summary: "Get brand",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              description: "Brand identifier",
+              schema: { type: "string" },
+            },
+          ],
+          responses: {
+            200: {
+              description: "Brand payload",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      data: { $ref: "#/components/schemas/Brand" },
+                    },
+                    required: ["data"],
+                  },
+                },
+              },
+            },
+            404: {
+              description: "Brand not found",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+          },
+        },
+        put: {
+          tags: ["Brands"],
+          summary: "Update brand",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              description: "Brand identifier",
+              schema: { type: "string" },
+            },
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/BrandInput" },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Updated brand",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      data: { $ref: "#/components/schemas/Brand" },
+                    },
+                    required: ["data"],
+                  },
+                },
+              },
+            },
+            404: {
+              description: "Brand not found",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                },
+              },
+            },
+          },
+        },
+        delete: {
+          tags: ["Brands"],
+          summary: "Delete brand",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              description: "Brand identifier",
+              schema: { type: "string" },
+            },
+          ],
+          responses: {
+            204: {
+              description: "Brand removed",
+            },
+            404: {
+              description: "Brand not found",
               content: {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/ErrorResponse" },

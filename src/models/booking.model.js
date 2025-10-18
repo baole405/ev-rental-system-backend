@@ -7,6 +7,11 @@ const bookingSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    brand: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Brand",
+      required: true,
+    },
     pickupStation: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Station",
@@ -25,6 +30,26 @@ const bookingSchema = new mongoose.Schema(
       type: Number,
       min: 1,
       default: 1,
+    },
+    baseAmount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    surchargeAmount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    depositAmount: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    totalAmount: {
+      type: Number,
+      min: 0,
+      default: 0,
     },
     status: {
       type: String,

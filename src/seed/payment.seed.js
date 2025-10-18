@@ -2,59 +2,81 @@ import Payment from "../models/payment.model.js";
 
 const DEFAULT_PAYMENTS = [
   {
+    bookingKey: "alice-early-june",
     rentalKey: "alice-june-trip",
     method: "card",
     status: "paid",
-    baseAmount: 450000,
     surchargeAmount: 50000,
-    totalAmount: 500000,
     txnRef: "EVPAY-20240601-0001",
   },
   {
+    bookingKey: "alice-august-getaway",
     rentalKey: "alice-august-ongoing",
     method: "card",
-    status: "pending",
-    baseAmount: 0,
+    status: "paid",
     surchargeAmount: 0,
-    totalAmount: 0,
     txnRef: null,
   },
   {
+    bookingKey: "minh-danang-weekend",
     rentalKey: "minh-danang-trip",
     method: "wallet",
     status: "paid",
-    baseAmount: 620000,
     surchargeAmount: 30000,
-    totalAmount: 650000,
     txnRef: "EVPAY-20240817-0003",
   },
 ];
 
-export const seedPayments = async ({ rentalMap }) => {
+const computeAmountsFromBooking = (booking, overrideSurcharge) => {
+  const baseAmount = Number(booking.baseAmount ?? 0);
+  const depositAmount = Number(booking.depositAmount ?? 0);
+  const surchargeAmount =
+    overrideSurcharge ?? Number(booking.surchargeAmount ?? 0);
+
+  return {
+    baseAmount,
+    depositAmount,
+    surchargeAmount,
+    totalAmount: baseAmount + depositAmount + surchargeAmount,
+  };
+};
+
+export const seedPayments = async ({ bookingMap, rentalMap }) => {
   for (const payment of DEFAULT_PAYMENTS) {
-    const rental = rentalMap.get(payment.rentalKey);
-    if (!rental) {
+    const booking = bookingMap.get(payment.bookingKey);
+    if (!booking) {
       continue;
     }
 
+    const rentalDoc = payment.rentalKey
+      ? rentalMap?.get(payment.rentalKey) ?? null
+      : null;
+
+    const amounts = computeAmountsFromBooking(booking, payment.surchargeAmount);
+
     let doc = await Payment.findOneAndUpdate(
       {
-        rental: rental._id,
+        booking: booking._id,
         method: payment.method,
       },
       {
-        rental: rental._id,
+        booking: booking._id,
+        rental: rentalDoc?._id ?? null,
         method: payment.method,
         status: payment.status,
-        baseAmount: payment.baseAmount,
-        surchargeAmount: payment.surchargeAmount,
-        totalAmount: payment.totalAmount,
+        baseAmount: amounts.baseAmount,
+        depositAmount: amounts.depositAmount,
+        surchargeAmount: amounts.surchargeAmount,
+        totalAmount: amounts.totalAmount,
         txnRef: payment.txnRef ?? null,
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    doc = await doc.populate(["rental"]);
+    doc = await doc.populate([
+      { path: "booking", select: "_id" },
+      { path: "rental", select: "_id" },
+    ]);
   }
 
   const count = await Payment.estimatedDocumentCount();
