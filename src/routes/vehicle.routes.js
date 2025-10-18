@@ -6,14 +6,13 @@ import {
   updateVehicle,
   deleteVehicle,
 } from "../controllers/vehicle.controller.js";
-import authGuard from "../middleware/auth.middleware.js";
 
 const router = Router();
 
 router.get("/", listVehicles);
 router.get("/:id", getVehicle);
-router.post("/", authGuard("admin", "staff"), createVehicle);
-router.put("/:id", authGuard("admin", "staff"), updateVehicle);
-router.delete("/:id", authGuard("admin"), deleteVehicle);
+router.post("/", createVehicle);
+router.put("/:id", updateVehicle);
+router.delete("/:id", deleteVehicle);
 
 export default router;
