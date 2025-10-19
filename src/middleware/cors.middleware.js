@@ -4,6 +4,7 @@ const allowedOrigins = [
   "http://localhost:4200",
   "http://localhost:5000",
   "https://electric-rental-p4ohi.ondigitalocean.app",
+  "https://electric-vehicle-rental.pages.dev",
 ];
 
 const corsOptions = {
