@@ -46,6 +46,55 @@ const vehicleSchema = new mongoose.Schema(
       min: 0,
       default: 0,
     },
+    specifications: {
+      seatCount: {
+        type: Number,
+        min: 1,
+        max: 20,
+        default: null,
+      },
+      transmissionType: {
+        type: String,
+        enum: [
+          "automatic",
+          "manual",
+          "cvt",
+          "dual-clutch",
+          "semi-automatic",
+          "single-speed",
+          "other",
+        ],
+        default: null,
+      },
+      airbagCount: {
+        type: Number,
+        min: 0,
+        max: 20,
+        default: null,
+      },
+      horsepower: {
+        type: Number,
+        min: 0,
+        max: 2000,
+        default: null,
+      },
+      motorType: {
+        type: String,
+        default: null,
+        trim: true,
+      },
+      motorSupplier: {
+        type: String,
+        default: null,
+        trim: true,
+      },
+      batteryCapacityKWh: {
+        type: Number,
+        min: 0,
+        max: 500,
+        default: null,
+      },
+    },
   },
   {
     timestamps: true,
