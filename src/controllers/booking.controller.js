@@ -26,7 +26,7 @@ const calculatePricing = (brand, rentalDays, pickupDateTime, returnDateTime) => 
   while (current < returnDateTime) {
     const dayOfWeek = current.getDay();
     if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday = 0, Saturday = 6
-      additionalFees += 100000; // Phụ phí 100k/ngày cuối tuần
+      additionalFees += 500; //TODO: Phụ phí 100k/ngày cuối tuần
     }
     current.setDate(current.getDate() + 1);
   }
