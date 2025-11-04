@@ -67,6 +67,10 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
         name: "Payments",
         description: "Rental payment transactions.",
       },
+      {
+        name: "PayOS",
+        description: "PayOS payment gateway integration for online payments.",
+      },
     ],
     components: {
       schemas: {
@@ -845,6 +849,118 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
             txnRef: { type: "string" },
           },
           required: ["booking", "method"],
+        },
+        PayOSCheckoutRequest: {
+          type: "object",
+          properties: {
+            bookingId: {
+              type: "string",
+              description: "Booking identifier to create payment for",
+            },
+          },
+          required: ["bookingId"],
+        },
+        PayOSCheckoutResponse: {
+          type: "object",
+          properties: {
+            orderCode: {
+              type: "string",
+              description: "Unique order code for the payment transaction",
+            },
+            checkoutLink: {
+              type: "string",
+              description: "PayOS checkout URL for the customer to complete payment",
+            },
+          },
+          required: ["orderCode", "checkoutLink"],
+        },
+        PayOSWebhookData: {
+          type: "object",
+          properties: {
+            orderCode: {
+              type: "string",
+              description: "Order code from PayOS",
+            },
+            amount: {
+              type: "number",
+              description: "Payment amount",
+            },
+            description: {
+              type: "string",
+              description: "Payment description",
+            },
+            accountNumber: {
+              type: "string",
+              description: "Account number",
+            },
+            reference: {
+              type: "string",
+              description: "Payment reference",
+            },
+            transactionDateTime: {
+              type: "string",
+              description: "Transaction date and time",
+            },
+            currency: {
+              type: "string",
+              description: "Currency code",
+            },
+            paymentLinkId: {
+              type: "string",
+              description: "Payment link identifier",
+            },
+            code: {
+              type: "string",
+              description: "Response code",
+            },
+            desc: {
+              type: "string",
+              description: "Response description",
+            },
+            counterAccountBankId: {
+              type: "string",
+              nullable: true,
+              description: "Counter account bank ID",
+            },
+            counterAccountBankName: {
+              type: "string",
+              nullable: true,
+              description: "Counter account bank name",
+            },
+            counterAccountName: {
+              type: "string",
+              nullable: true,
+              description: "Counter account name",
+            },
+            counterAccountNumber: {
+              type: "string",
+              nullable: true,
+              description: "Counter account number",
+            },
+            virtualAccountName: {
+              type: "string",
+              nullable: true,
+              description: "Virtual account name",
+            },
+            virtualAccountNumber: {
+              type: "string",
+              nullable: true,
+              description: "Virtual account number",
+            },
+          },
+        },
+        PayOSWebhookRequest: {
+          type: "object",
+          properties: {
+            data: {
+              $ref: "#/components/schemas/PayOSWebhookData",
+            },
+            signature: {
+              type: "string",
+              description: "HMAC SHA256 signature for webhook verification",
+            },
+          },
+          required: ["data", "signature"],
         },
       },
     },
@@ -2681,6 +2797,102 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
                   schema: { $ref: "#/components/schemas/ErrorResponse" },
                 },
               },
+            },
+          },
+        },
+      },
+      "/api/payos/checkout": {
+        post: {
+          tags: ["PayOS"],
+          summary: "Create PayOS checkout link",
+          description:
+            "Creates a PayOS payment checkout link for a confirmed booking. The booking must be in 'confirmed' status before creating a checkout link.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PayOSCheckoutRequest" },
+                example: {
+                  bookingId: "507f1f77bcf86cd799439011",
+                },
+              },
+            },
+          },
+          responses: {
+            201: {
+              description: "Checkout link created successfully",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/PayOSCheckoutResponse",
+                  },
+                  example: {
+                    orderCode: "123456789",
+                    checkoutLink:
+                      "https://payos.vn/checkout/123456789",
+                  },
+                },
+              },
+            },
+            400: {
+              description: "Invalid request - missing bookingId or invalid booking amount",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                  examples: {
+                    missingBookingId: {
+                      value: { message: "bookingId is required" },
+                    },
+                    invalidAmount: {
+                      value: { message: "Invalid booking amount for payment" },
+                    },
+                  },
+                },
+              },
+            },
+            404: {
+              description: "Booking not found",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                  example: { message: "Booking not found" },
+                },
+              },
+            },
+            409: {
+              description: "Booking must be confirmed before payment",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                  example: {
+                    message: "Booking must be confirmed before payment",
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/api/payos/webhook": {
+        post: {
+          tags: ["PayOS"],
+          summary: "PayOS webhook handler",
+          description:
+            "Webhook endpoint for PayOS to send payment notifications. This endpoint verifies the webhook signature, processes the payment, creates a payment record, and updates the booking status to 'paid'. This endpoint is called by PayOS automatically when a payment is completed.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/PayOSWebhookRequest" },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Webhook processed successfully (or ignored if already processed)",
+            },
+            401: {
+              description: "Invalid signature - webhook verification failed",
             },
           },
         },
