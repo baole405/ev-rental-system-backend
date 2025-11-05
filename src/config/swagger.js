@@ -955,13 +955,25 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
               type: "string",
               description: "Unique order code for the payment transaction",
             },
-            checkoutLink: {
-              type: "string",
-              description:
-                "PayOS checkout URL for the customer to complete payment",
+            checkoutData: {
+              type: "object",
+              description: "Complete PayOS payment link response data",
+              properties: {
+                bin: { type: "string", description: "Bank identification number" },
+                accountNumber: { type: "string", description: "Account number for payment" },
+                accountName: { type: "string", description: "Account name" },
+                amount: { type: "number", description: "Payment amount" },
+                description: { type: "string", description: "Payment description" },
+                orderCode: { type: "number", description: "Order code" },
+                currency: { type: "string", description: "Currency code (VND)" },
+                paymentLinkId: { type: "string", description: "Payment link identifier" },
+                status: { type: "string", description: "Payment status" },
+                checkoutUrl: { type: "string", description: "PayOS checkout URL for customer" },
+                qrCode: { type: "string", description: "QR code for payment" },
+              },
             },
           },
-          required: ["orderCode", "checkoutLink"],
+          required: ["orderCode", "checkoutData"],
         },
         PayOSWebhookData: {
           type: "object",
@@ -3042,7 +3054,7 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
           tags: ["PayOS"],
           summary: "Create PayOS checkout link",
           description:
-            "Creates a PayOS payment checkout link for a confirmed booking. The booking must be in 'confirmed' status before creating a checkout link.",
+            "Creates a PayOS payment checkout link for a booking. If the booking is in 'pending' status with an assigned vehicle, it will be automatically confirmed and moved to 'waiting_payment' status. The booking must be in 'waiting_payment' status to create the checkout link. Returns the complete PayOS payment data including checkout URL and QR code.",
           requestBody: {
             required: true,
             content: {
@@ -3064,14 +3076,26 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
                   },
                   example: {
                     orderCode: "123456789",
-                    checkoutLink: "https://payos.vn/checkout/123456789",
+                    checkoutData: {
+                      bin: "970422",
+                      accountNumber: "1234567890",
+                      accountName: "EV RENTAL SYSTEM",
+                      amount: 500000,
+                      description: "Payment #123456789",
+                      orderCode: 123456789,
+                      currency: "VND",
+                      paymentLinkId: "abc123xyz",
+                      status: "PENDING",
+                      checkoutUrl: "https://pay.payos.vn/web/abc123xyz",
+                      qrCode: "data:image/png;base64,iVBORw0KG...",
+                    },
                   },
                 },
               },
             },
             400: {
               description:
-                "Invalid request - missing bookingId or invalid booking amount",
+                "Invalid request - missing bookingId, invalid booking amount, or no vehicle assigned",
               content: {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/ErrorResponse" },
@@ -3082,26 +3106,70 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
                     invalidAmount: {
                       value: { message: "Invalid booking amount for payment" },
                     },
+                    noVehicle: {
+                      value: {
+                        message: "No vehicle assigned to this booking",
+                        detail: "A vehicle must be assigned before payment can be processed"
+                      },
+                    },
                   },
                 },
               },
             },
             404: {
-              description: "Booking not found",
+              description: "Booking not found or vehicle not found",
               content: {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/ErrorResponse" },
-                  example: { message: "Booking not found" },
+                  examples: {
+                    bookingNotFound: {
+                      value: { message: "Booking not found" },
+                    },
+                    vehicleNotFound: {
+                      value: {
+                        message: "The vehicle assigned to this booking was not found",
+                        detail: "Please contact support to resolve this issue"
+                      },
+                    },
+                  },
                 },
               },
             },
             409: {
-              description: "Booking must be confirmed before payment",
+              description: "Booking is not in a confirmable status or vehicle not available",
+              content: {
+                "application/json": {
+                  schema: { $ref: "#/components/schemas/ErrorResponse" },
+                  examples: {
+                    notConfirmable: {
+                      value: {
+                        message: "Booking is not in a confirmable status",
+                        detail: "The booking may already be awaiting payment, cancelled, or completed"
+                      },
+                    },
+                    notWaitingPayment: {
+                      value: {
+                        message: "Booking must be waiting for payment before checkout",
+                      },
+                    },
+                    vehicleNotAvailable: {
+                      value: {
+                        message: "The assigned vehicle is no longer available",
+                        detail: "The vehicle may have been rented or is under maintenance"
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            502: {
+              description: "Payment gateway error",
               content: {
                 "application/json": {
                   schema: { $ref: "#/components/schemas/ErrorResponse" },
                   example: {
-                    message: "Booking must be confirmed before payment",
+                    message: "Payment gateway error",
+                    detail: "Unable to create payment link. Please try again later."
                   },
                 },
               },
@@ -3114,22 +3182,72 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
           tags: ["PayOS"],
           summary: "PayOS webhook handler",
           description:
-            "Webhook endpoint for PayOS to send payment notifications. This endpoint verifies the webhook signature, processes the payment, creates a payment record, and updates the booking status to PAID. This endpoint is called by PayOS automatically when a payment is completed.",
+            "Webhook endpoint for PayOS to send payment notifications. This endpoint: 1) Verifies the webhook signature using HMAC SHA256, 2) Checks if the payment intent exists and hasn't been processed, 3) Validates the booking is in 'waiting_payment' status, 4) Creates a payment record with 'transfer' method and 'success' status, 5) Updates the booking status to 'paid', 6) Marks the payment intent as 'captured'. All operations are performed in a MongoDB transaction to ensure data consistency. This endpoint is called automatically by PayOS when a payment is completed.",
           requestBody: {
             required: true,
             content: {
               "application/json": {
                 schema: { $ref: "#/components/schemas/PayOSWebhookRequest" },
+                example: {
+                  data: {
+                    orderCode: "123456789",
+                    amount: 500000,
+                    description: "Payment #123456789",
+                    accountNumber: "1234567890",
+                    reference: "FT123456789",
+                    transactionDateTime: "2025-11-05 14:30:00",
+                    currency: "VND",
+                    paymentLinkId: "abc123xyz",
+                    code: "00",
+                    desc: "success",
+                    counterAccountBankId: null,
+                    counterAccountBankName: null,
+                    counterAccountName: null,
+                    counterAccountNumber: null,
+                    virtualAccountName: null,
+                    virtualAccountNumber: null,
+                  },
+                  signature: "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6",
+                },
               },
             },
           },
           responses: {
             200: {
               description:
-                "Webhook processed successfully (or ignored if already processed)",
+                "Webhook processed successfully (or safely ignored if payment already processed, booking not found, payment intent not found, or booking in unexpected status). Always returns 200 to acknowledge receipt to PayOS.",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      success: {
+                        type: "boolean",
+                        description: "Always true when webhook is acknowledged",
+                      },
+                    },
+                  },
+                },
+              },
             },
             401: {
-              description: "Invalid signature - webhook verification failed",
+              description: "Invalid signature - webhook verification failed. The signature doesn't match the computed HMAC SHA256 hash of the webhook data.",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      error: {
+                        type: "string",
+                        description: "Error message",
+                      },
+                    },
+                  },
+                  example: {
+                    error: "Unauthorized",
+                  },
+                },
+              },
             },
           },
         },
