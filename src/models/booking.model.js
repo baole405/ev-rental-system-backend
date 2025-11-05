@@ -260,13 +260,23 @@ bookingSchema.pre("save", async function (next) {
   if (!this.bookingCode) {
     const date = new Date();
     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, "");
-    const count = await mongoose.model("Booking").countDocuments({
-      createdAt: {
-        $gte: new Date(date.setHours(0, 0, 0, 0)),
-        $lt: new Date(date.setHours(23, 59, 59, 999)),
-      },
-    });
-    this.bookingCode = `BK${dateStr}${String(count + 1).padStart(3, "0")}`;
+    const counterId = `booking_${dateStr}`;
+
+    try {
+      // Use findOneAndUpdate with atomic increment to avoid race conditions
+      const { Counter } = await import("./counter.model.js");
+      const counter = await Counter.findByIdAndUpdate(
+        counterId,
+        { $inc: { seq: 1 } },
+        { new: true, upsert: true }
+      );
+
+      this.bookingCode = `BK${dateStr}${String(counter.seq).padStart(3, "0")}`;
+    } catch (error) {
+      console.error("❌ Error generating bookingCode:", error);
+      // Fallback to timestamp-based code if counter fails
+      this.bookingCode = `BK${Date.now()}`;
+    }
   }
   next();
 });

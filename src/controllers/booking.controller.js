@@ -535,46 +535,84 @@ export const createBooking = async (req, res, next) => {
     ];
 
     // Tạo booking với format phù hợp model hiện tại
-    const booking = await Booking.create({
-      // Thông tin người thuê
-      renter: renterDoc ? renterDoc._id : null,
-      renterName: renterName.trim(),
-      phoneNumber: phoneNumber.trim(),
-      email: email.toLowerCase().trim(),
+    // Retry logic for duplicate bookingCode (race condition)
+    let booking;
+    let retryCount = 0;
+    const maxRetries = 3;
 
-      // Thông tin booking
-      brand: brandDoc._id,
-      pickupStation: station._id,
-      vehicle: vehicleDoc?._id || null,
+    while (retryCount < maxRetries) {
+      try {
+        const bookingData = {
+          // Thông tin người thuê
+          renter: renterDoc ? renterDoc._id : null,
+          renterName: renterName.trim(),
+          phoneNumber: phoneNumber.trim(),
+          email: email.toLowerCase().trim(),
 
-      // Thời gian - map từ pickupTimeExpected sang format model
-      pickupDate: new Date(pickupDateTime.toDateString()), // Chỉ lấy date part
-      pickupTime: pickupDateTime.toTimeString().slice(0, 5), // HH:mm format
-      returnDate: new Date(returnTimeExpected.toDateString()), // Chỉ lấy date part
-      returnTime: returnTimeExpected.toTimeString().slice(0, 5), // HH:mm format
-      pickupDateTime: pickupDateTime, // Full datetime
-      returnDateTime: returnTimeExpected, // Full datetime
+          // Thông tin booking
+          brand: brandDoc._id,
+          pickupStation: station._id,
+          vehicle: vehicleDoc?._id || null,
 
-      rentalDays,
+          // Thời gian - map từ pickupTimeExpected sang format model
+          pickupDate: new Date(pickupDateTime.toDateString()), // Chỉ lấy date part
+          pickupTime: pickupDateTime.toTimeString().slice(0, 5), // HH:mm format
+          returnDate: new Date(returnTimeExpected.toDateString()), // Chỉ lấy date part
+          returnTime: returnTimeExpected.toTimeString().slice(0, 5), // HH:mm format
+          pickupDateTime: pickupDateTime, // Full datetime
+          returnDateTime: returnTimeExpected, // Full datetime
 
-      // Giá cả - theo format model hiện tại
-      basePrice: baseAmount,
-      additionalFees: additionalFees,
-      totalRentalFee: baseAmount + additionalFees,
-      depositAmount: depositAmount,
-      totalPayable: totalAmount,
+          rentalDays,
 
-      // Thông tin khác
-      paymentMethod,
-      notes,
-      agreedToPaymentTerms,
-      agreedToDataSharing,
-      status: BOOKING_STATUS.PENDING_APPROVAL,
-      statusHistory,
-      lastStatusChangedAt: statusHistory[statusHistory.length - 1].changedAt,
-      paymentDueAt: null,
-      reservationExpiresAt: null,
-    });
+          // Giá cả - theo format model hiện tại
+          basePrice: baseAmount,
+          additionalFees: additionalFees,
+          totalRentalFee: baseAmount + additionalFees,
+          depositAmount: depositAmount,
+          totalPayable: totalAmount,
+
+          // Thông tin khác
+          paymentMethod,
+          notes,
+          agreedToPaymentTerms,
+          agreedToDataSharing,
+          status: BOOKING_STATUS.PENDING_APPROVAL,
+          statusHistory,
+          lastStatusChangedAt:
+            statusHistory[statusHistory.length - 1].changedAt,
+          paymentDueAt: null,
+          reservationExpiresAt: null,
+        };
+
+        // On retry, force new bookingCode by adding timestamp suffix
+        if (retryCount > 0) {
+          bookingData.bookingCode = `BK${Date.now()}${Math.floor(
+            Math.random() * 100
+          )}`;
+        }
+
+        booking = await Booking.create(bookingData);
+        break; // Success, exit retry loop
+      } catch (error) {
+        if (
+          error.code === 11000 &&
+          error.keyPattern?.bookingCode &&
+          retryCount < maxRetries - 1
+        ) {
+          // Duplicate bookingCode, retry with new code
+          console.log(
+            `⚠️ Duplicate bookingCode detected, retrying... (${
+              retryCount + 1
+            }/${maxRetries})`
+          );
+          retryCount++;
+          await new Promise((resolve) => setTimeout(resolve, 100 * retryCount)); // Wait before retry
+        } else {
+          // Other error or max retries reached
+          throw error;
+        }
+      }
+    }
 
     // 🚗 AUTO-RESERVE VEHICLE: Giữ xe trong quá trình thanh toán (giống ghế rạp)
     let reservedVehicle = null;
