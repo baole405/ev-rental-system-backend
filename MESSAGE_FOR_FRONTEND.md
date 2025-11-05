@@ -4,7 +4,8 @@
 - Backend has been updated to match the BA booking -> payment -> rental flow.
 - `GET /api/bookings` now expects a renter filter; profile screens must call `GET /api/bookings?renterId=<ObjectId>`.
 - Use `POST /api/payments/checkout/test` to simulate payments while PayOS credentials are not ready.
-- Rental and handover APIs now drive vehicle status automatically—surface the new status values in UI.
+- Rental and handover APIs now drive vehicle status automatically; surface the new status values in UI.
+- Background jobs are active (reservation timeout, auto rental, late rental) so FE should react to status changes triggered server-side.
 
 ## Immediate To-Do
 1. Refresh API helper layer to accept `renterId`, `status`, `email`, `phoneNumber` filters when fetching bookings.
@@ -17,6 +18,6 @@
 - Swagger: `http://localhost:4000/docs`
 - Status enums live in `src/constants/statusCodes.js`
 - Background jobs: `src/services/backgroundJobs.js` (for understanding automatic transitions)
+- Latest README highlights the BA-aligned flow and fake checkout usage.
 
 Ping the backend team before deploying if you detect mismatched status names or missing filters.
-

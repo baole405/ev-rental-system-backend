@@ -834,7 +834,8 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
             },
             method: {
               type: "string",
-              enum: ["cash", "card", "wallet", "transfer"],
+              enum: ["cash", "bank_transfer", "credit_card", "e_wallet"],
+              description: "Payment method: cash, bank_transfer, credit_card, or e_wallet"
             },
             status: {
               type: "string",
@@ -874,7 +875,8 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
             processedBy: { type: "string" },
             method: {
               type: "string",
-              enum: ["cash", "card", "wallet", "transfer"],
+              enum: ["cash", "bank_transfer", "credit_card", "e_wallet"],
+              description: "Payment method: cash, bank_transfer, credit_card, or e_wallet"
             },
             status: {
               type: "string",
@@ -2827,7 +2829,8 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
                     method: {
                       type: "string",
                       description: "Payment method label (optional)",
-                      enum: ["cash", "card", "wallet", "transfer"],
+                      enum: ["cash", "bank_transfer", "credit_card", "e_wallet"],
+                      default: "e_wallet"
                     },
                     txnRef: {
                       type: "string",

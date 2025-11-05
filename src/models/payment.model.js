@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { PAYMENT_STATUS } from "../constants/statusCodes.js";
+import { PAYMENT_METHOD, PAYMENT_STATUS } from "../constants/statusCodes.js";
 
 const paymentSchema = new mongoose.Schema(
   {
@@ -20,7 +20,7 @@ const paymentSchema = new mongoose.Schema(
     },
     method: {
       type: String,
-      enum: ["cash", "card", "wallet", "transfer"],
+      enum: Object.values(PAYMENT_METHOD),
       required: true,
     },
     status: {

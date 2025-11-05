@@ -37,6 +37,13 @@ export const PAYMENT_STATUS = Object.freeze({
   REFUNDED: "REFUNDED",
 });
 
+export const PAYMENT_METHOD = Object.freeze({
+  CASH: "cash",
+  BANK_TRANSFER: "bank_transfer",
+  CREDIT_CARD: "credit_card",
+  E_WALLET: "e_wallet",
+});
+
 export const RESERVATION_HOLD_MINUTES = 30;
 
 export default {
@@ -44,5 +51,6 @@ export default {
   RENTAL_STATUS,
   VEHICLE_STATUS,
   PAYMENT_STATUS,
+  PAYMENT_METHOD,
   RESERVATION_HOLD_MINUTES,
 };
