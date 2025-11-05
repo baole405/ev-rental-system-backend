@@ -1,5 +1,5 @@
 import mongoose from "mongoose";
-import { BOOKING_STATUS } from "../constants/statusCodes.js";
+import { BOOKING_STATUS, PAYMENT_METHOD } from "../constants/statusCodes.js";
 
 const bookingSchema = new mongoose.Schema(
   {
@@ -125,7 +125,7 @@ const bookingSchema = new mongoose.Schema(
     // Thanh toán
     paymentMethod: {
       type: String,
-      enum: ["online", "cash", "bank_transfer", "credit_card", "e_wallet"],
+      enum: Object.values(PAYMENT_METHOD),
       required: true,
     },
     paymentReference: {

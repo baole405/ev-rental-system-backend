@@ -569,7 +569,6 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
             paymentMethod: {
               type: "string",
               enum: [
-                "online",
                 "cash",
                 "bank_transfer",
                 "credit_card",
