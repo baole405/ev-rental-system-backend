@@ -3177,9 +3177,3 @@ export const createSwaggerUiHtml = (
 </html>`;
 
 export default createSwaggerSpec;
-
-
-
-
-
-
