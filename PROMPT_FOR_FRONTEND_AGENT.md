@@ -6,6 +6,13 @@
 - Temporary fake checkout endpoint (`POST /api/payments/checkout/test`) replaces real PayOS during integration.
 - Rental and handover controllers update vehicle status automatically; FE screens must respect new status enums.
 
+## Recent Backend Changes (post-BA alignment)
+- Rebuilt status enums (`src/constants/statusCodes.js`) and propagated them through booking, rental, handover, payment responses.
+- Added background jobs for reservation timeout, auto rental creation, and late rental detection (these now drive vehicle status flips).
+- Updated `/api/bookings` filter logic to require `renterId` for renter history; staff filters remain via query params.
+- Introduced fake checkout endpoint while PayOS credentials are pending; PayOS config falls back gracefully when env vars are missing.
+- Refreshed Swagger, README, and FE guide to reflect the above – please sync FE helper functions with the new schemas.
+
 ## Mission
 1. Update Profile -> Bookings tab to call `GET /api/bookings?renterId=${currentUser._id}` and render the new status pipeline.
 2. Wire payment flow using the fake checkout endpoint until PayOS keys are available.
@@ -59,7 +66,7 @@
 ## Communication Notes
 - Document any FE-only assumptions in the shared Confluence page.
 - When PayOS is ready, swap fake checkout with `/api/payos/checkout`; no other FE change needed.
-- Coordinate with backend before changing status strings—enums are centralized in `src/constants/statusCodes.js`.
+- Cron jobs are authoritative for reservation release and late rentals; FE should expect status changes even without direct user input.
+- Coordinate with backend before changing status strings; enums are centralized in `src/constants/statusCodes.js`.
 
 Use this prompt as the source of truth while implementing or debugging the FE side.
-
