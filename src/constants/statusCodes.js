@@ -16,6 +16,7 @@ export const RENTAL_STATUS = Object.freeze({
   CHECKED_IN: "CHECKED_IN", // ✅ Thêm: Khách đã check-in, chờ ký hợp đồng
   IN_PROGRESS: "IN_PROGRESS",
   LATE: "LATE",
+  RETURNING: "RETURNING", // ✅ Thêm: Khách đang trả xe
   RETURNED: "RETURNED",
   DAMAGED: "DAMAGED",
   COMPLETED: "COMPLETED",

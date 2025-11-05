@@ -143,6 +143,99 @@ const rentalSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // ✅ Thêm fields cho Return Vehicle
+    returnInitiatedAt: {
+      type: Date,
+      default: null,
+    },
+    estimatedReturnTime: {
+      type: Date,
+      default: null,
+    },
+    currentMileage: {
+      type: Number,
+      default: null,
+    },
+    currentBatteryLevel: {
+      type: Number,
+      default: null,
+    },
+    returnNotes: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    returnInspection: {
+      type: {
+        inspectedAt: Date,
+        inspectedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        batteryLevel: Number,
+        mileage: Number,
+        exteriorPhotos: [String],
+        interiorPhotos: [String],
+        damages: [
+          {
+            type: {
+              type: String,
+              enum: ["scratch", "dent", "broken", "missing", "stain"],
+            },
+            location: String,
+            severity: {
+              type: String,
+              enum: ["minor", "moderate", "severe"],
+            },
+            estimatedCost: Number,
+            photo: String,
+          },
+        ],
+        notes: String,
+        checklist: {
+          cleanInterior: Boolean,
+          cleanExterior: Boolean,
+          tireCondition: {
+            type: String,
+            enum: ["good", "fair", "poor"],
+          },
+          lightsWorking: Boolean,
+          brakesWorking: Boolean,
+        },
+      },
+      default: null,
+    },
+    returnInspectedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    returnInspectedAt: {
+      type: Date,
+      default: null,
+    },
+    damageCharges: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    cleaningFee: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    batteryFee: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    extraChargePayment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Payment",
+      default: null,
+    },
+    refundPayment: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Payment",
+      default: null,
+    },
     baseAmount: {
       type: Number,
       required: true,
