@@ -1,12 +1,14 @@
-import path from "path";
 import dotenv from "dotenv";
 import express from "express";
+import path from "path";
 import authRoutes from "./routes/auth.routes.js";
 
 import connectDB from "./config/mongodb.js";
 import { createSwaggerSpec, createSwaggerUiHtml } from "./config/swagger.js";
+import corsMiddleware from "./middleware/cors.middleware.js";
 import bookingRoutes from "./routes/booking.routes.js";
 import brandRoutes from "./routes/brand.routes.js";
+import checkinRoutes from "./routes/checkin.routes.js";
 import handoverRoutes from "./routes/handover.routes.js";
 import paymentRoutes from "./routes/payment.routes.js";
 import payosRoutes from "./routes/payos.routes.js";
@@ -15,7 +17,6 @@ import stationRoutes from "./routes/station.routes.js";
 import userRoutes from "./routes/user.routes.js";
 import userDocumentRoutes from "./routes/userDocument.routes.js";
 import vehicleRoutes from "./routes/vehicle.routes.js";
-import corsMiddleware from "./middleware/cors.middleware.js";
 import { startBackgroundJobs } from "./services/backgroundJobs.js";
 
 dotenv.config();
@@ -52,10 +53,11 @@ app.use("/api/booking", bookingRoutes);
 app.use("/api/bookings", bookingRoutes);
 
 app.use("/api/booking", bookingRoutes); // legacy support
-app.use("/api/handovers", handoverRoutes);
 app.use("/api/brands", brandRoutes);
+app.use("/api/handovers", handoverRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api", payosRoutes);
+app.use("/api/rentals", checkinRoutes); // ✅ Check-in routes (phải đặt TRƯỚC rentalRoutes)
 app.use("/api/rentals", rentalRoutes);
 app.use("/api/stations", stationRoutes);
 app.use("/api/users", userRoutes);

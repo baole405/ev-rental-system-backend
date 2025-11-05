@@ -13,6 +13,7 @@ export const BOOKING_STATUS = Object.freeze({
 export const RENTAL_STATUS = Object.freeze({
   CREATED: "CREATED",
   READY_FOR_PICKUP: "READY_FOR_PICKUP",
+  CHECKED_IN: "CHECKED_IN", // ✅ Thêm: Khách đã check-in, chờ ký hợp đồng
   IN_PROGRESS: "IN_PROGRESS",
   LATE: "LATE",
   RETURNED: "RETURNED",

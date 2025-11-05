@@ -98,6 +98,39 @@ const rentalSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // ✅ Thêm fields cho check-in và ký hợp đồng
+    checkedInAt: {
+      type: Date,
+      default: null,
+    },
+    checkedInBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    checkinNotes: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+    actualPickupTime: {
+      type: Date,
+      default: null,
+    },
+    contractSignedAt: {
+      type: Date,
+      default: null,
+    },
+    contract: {
+      type: {
+        signedAt: Date,
+        signature: String,
+        agreedTerms: Boolean,
+        ipAddress: String,
+        userAgent: String,
+      },
+      default: null,
+    },
     damagedAt: {
       type: Date,
       default: null,
