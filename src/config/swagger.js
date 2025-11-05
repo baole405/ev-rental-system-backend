@@ -588,7 +588,12 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
               default: 0,
               description: "Phụ phí thêm"
             },
-            status: {\r\n              type: "string",\r\n              enum: [\r\n                "CREATED",\r\n                "PENDING_APPROVAL",\r\n                "APPROVED",
+            status: {
+              type: "string",
+              enum: [
+                "CREATED",
+                "PENDING_APPROVAL",
+                "APPROVED",
                 "REJECTED",
                 "WAITING_PAYMENT",
                 "PAID",
