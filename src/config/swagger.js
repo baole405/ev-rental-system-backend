@@ -1389,9 +1389,31 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
         get: {
           tags: ["User Documents"],
           summary: "List user documents",
+          description: "Retrieve user documents with optional filtering by userId or email. If email is provided, it takes precedence over userId.",
+          parameters: [
+            {
+              name: "userId",
+              in: "query",
+              required: false,
+              description: "Filter documents by user ObjectId",
+              schema: { type: "string" },
+              example: "507f1f77bcf86cd799439011",
+            },
+            {
+              name: "email",
+              in: "query",
+              required: false,
+              description: "Filter documents by user email (case-insensitive). Takes precedence over userId if both are provided.",
+              schema: { 
+                type: "string",
+                format: "email"
+              },
+              example: "user@example.com",
+            },
+          ],
           responses: {
             200: {
-              description: "Array of user documents",
+              description: "Array of user documents (empty array if no documents found for the user)",
               content: {
                 "application/json": {
                   schema: {
@@ -1404,6 +1426,67 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
                     },
                     required: ["data"],
                   },
+                  examples: {
+                    withDocuments: {
+                      summary: "User has documents",
+                      value: {
+                        data: [
+                          {
+                            _id: "507f1f77bcf86cd799439012",
+                            user: {
+                              _id: "507f1f77bcf86cd799439011",
+                              fullName: "John Doe",
+                              email: "john@example.com",
+                              role: "renter",
+                              status: "verified"
+                            },
+                            documentType: "national_id",
+                            identityNumber: "123456789",
+                            drivingLicenseNumber: "DL123456",
+                            frontImageUrl: "uploads/documents/front-123.jpg",
+                            backImageUrl: "uploads/documents/back-123.jpg",
+                            drivingLicenseImageUrl: "uploads/documents/dl-123.jpg",
+                            status: "verified",
+                            submittedAt: "2025-11-01T10:00:00.000Z",
+                            verifiedAt: "2025-11-02T14:30:00.000Z",
+                            createdAt: "2025-11-01T10:00:00.000Z",
+                            updatedAt: "2025-11-02T14:30:00.000Z"
+                          }
+                        ]
+                      }
+                    },
+                    noDocuments: {
+                      summary: "User has no documents",
+                      value: {
+                        data: []
+                      }
+                    }
+                  }
+                },
+              },
+            },
+            404: {
+              description: "User not found when filtering by email",
+              content: {
+                "application/json": {
+                  schema: { 
+                    type: "object",
+                    properties: {
+                      message: {
+                        type: "string",
+                        description: "Error message"
+                      },
+                      email: {
+                        type: "string",
+                        description: "The email that was not found"
+                      }
+                    },
+                    required: ["message"]
+                  },
+                  example: {
+                    message: "User not found with provided email",
+                    email: "nonexistent@example.com"
+                  }
                 },
               },
             },
@@ -3170,6 +3253,231 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
                   example: {
                     message: "Payment gateway error",
                     detail: "Unable to create payment link. Please try again later."
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      "/api/payos/verify-payment": {
+        post: {
+          tags: ["PayOS"],
+          summary: "Verify PayOS payment status",
+          description:
+            "Verifies the payment status directly from PayOS after the user is redirected back from the payment gateway. This endpoint should be called by the frontend after a PayOS redirect to immediately verify the payment and update the booking status. It queries PayOS for the latest payment status, and if the payment is successful, it creates a payment record and updates the booking status to 'paid'. All operations are performed in a MongoDB transaction to ensure data consistency.",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  required: ["bookingId", "orderCode"],
+                  properties: {
+                    bookingId: {
+                      type: "string",
+                      description: "The booking identifier to verify payment for",
+                      example: "507f1f77bcf86cd799439011",
+                    },
+                    orderCode: {
+                      type: "string",
+                      description: "The PayOS order code returned from checkout",
+                      example: "123456789",
+                    },
+                  },
+                },
+                example: {
+                  bookingId: "507f1f77bcf86cd799439011",
+                  orderCode: "123456789",
+                },
+              },
+            },
+          },
+          responses: {
+            200: {
+              description: "Payment verification completed successfully",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      success: {
+                        type: "boolean",
+                        description: "Always true for successful verification",
+                      },
+                      data: {
+                        type: "object",
+                        properties: {
+                          verified: {
+                            type: "boolean",
+                            description: "Always true when payment info is retrieved from PayOS",
+                          },
+                          paymentStatus: {
+                            type: "string",
+                            description: "Payment status from PayOS (e.g., PAID, PENDING, CANCELLED)",
+                            enum: ["PAID", "PENDING", "CANCELLED", "PROCESSING"],
+                          },
+                          bookingStatus: {
+                            type: "string",
+                            description: "Current booking status after verification",
+                            enum: [
+                              "CREATED",
+                              "PENDING_APPROVAL",
+                              "APPROVED",
+                              "REJECTED",
+                              "WAITING_PAYMENT",
+                              "PAID",
+                              "PAYMENT_FAILED",
+                              "CANCELLED",
+                              "SUCCESS",
+                            ],
+                          },
+                          amount: {
+                            type: "number",
+                            description: "Payment amount from PayOS",
+                          },
+                          transactionDate: {
+                            type: "string",
+                            description: "Transaction date and time",
+                          },
+                          orderCode: {
+                            type: "string",
+                            description: "The PayOS order code",
+                          },
+                        },
+                        required: [
+                          "verified",
+                          "paymentStatus",
+                          "bookingStatus",
+                          "amount",
+                          "transactionDate",
+                          "orderCode",
+                        ],
+                      },
+                    },
+                    required: ["success", "data"],
+                  },
+                  examples: {
+                    paymentSuccessful: {
+                      summary: "Payment successful and booking updated",
+                      value: {
+                        success: true,
+                        data: {
+                          verified: true,
+                          paymentStatus: "PAID",
+                          bookingStatus: "PAID",
+                          amount: 500000,
+                          transactionDate: "2025-11-06T10:30:00.000Z",
+                          orderCode: "123456789",
+                        },
+                      },
+                    },
+                    paymentPending: {
+                      summary: "Payment still pending",
+                      value: {
+                        success: true,
+                        data: {
+                          verified: true,
+                          paymentStatus: "PENDING",
+                          bookingStatus: "WAITING_PAYMENT",
+                          amount: 500000,
+                          transactionDate: "2025-11-06T10:25:00.000Z",
+                          orderCode: "123456789",
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            400: {
+              description: "Invalid request - missing required parameters",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      success: {
+                        type: "boolean",
+                        description: "Always false for error responses",
+                      },
+                      message: {
+                        type: "string",
+                        description: "Error message",
+                      },
+                    },
+                    required: ["success", "message"],
+                  },
+                  example: {
+                    success: false,
+                    message: "bookingId and orderCode are required",
+                  },
+                },
+              },
+            },
+            404: {
+              description: "Payment intent or booking not found",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      success: {
+                        type: "boolean",
+                        description: "Always false for error responses",
+                      },
+                      message: {
+                        type: "string",
+                        description: "Error message",
+                      },
+                    },
+                    required: ["success", "message"],
+                  },
+                  examples: {
+                    paymentIntentNotFound: {
+                      summary: "Payment intent not found",
+                      value: {
+                        success: false,
+                        message: "Payment intent not found",
+                      },
+                    },
+                    bookingNotFound: {
+                      summary: "Booking not found",
+                      value: {
+                        success: false,
+                        message: "Booking not found",
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            502: {
+              description: "PayOS API error - failed to verify with payment gateway",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    properties: {
+                      success: {
+                        type: "boolean",
+                        description: "Always false for error responses",
+                      },
+                      message: {
+                        type: "string",
+                        description: "Error message",
+                      },
+                      detail: {
+                        type: "string",
+                        description: "Detailed error information from PayOS",
+                      },
+                    },
+                    required: ["success", "message"],
+                  },
+                  example: {
+                    success: false,
+                    message: "Failed to verify payment with PayOS",
+                    detail: "Connection timeout to PayOS API",
                   },
                 },
               },

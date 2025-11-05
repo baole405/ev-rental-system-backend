@@ -10,8 +10,22 @@ const mapUploadedFile = (file) =>
 export const listUserDocuments = async (req, res, next) => {
   try {
     const filter = {};
+    
+    // Filter by userId if provided
     if (req.query.userId) {
       filter.user = req.query.userId;
+    }
+    
+    // Filter by email if provided (takes precedence over userId)
+    if (req.query.email) {
+      const user = await User.findOne({ email: req.query.email.toLowerCase().trim() });
+      if (!user) {
+        return res.status(404).json({ 
+          message: "User not found with provided email",
+          email: req.query.email 
+        });
+      }
+      filter.user = user._id;
     }
 
     const documents = await UserDocument.find(filter)
