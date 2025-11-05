@@ -1389,9 +1389,31 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
         get: {
           tags: ["User Documents"],
           summary: "List user documents",
+          description: "Retrieve user documents with optional filtering by userId or email. If email is provided, it takes precedence over userId.",
+          parameters: [
+            {
+              name: "userId",
+              in: "query",
+              required: false,
+              description: "Filter documents by user ObjectId",
+              schema: { type: "string" },
+              example: "507f1f77bcf86cd799439011",
+            },
+            {
+              name: "email",
+              in: "query",
+              required: false,
+              description: "Filter documents by user email (case-insensitive). Takes precedence over userId if both are provided.",
+              schema: { 
+                type: "string",
+                format: "email"
+              },
+              example: "user@example.com",
+            },
+          ],
           responses: {
             200: {
-              description: "Array of user documents",
+              description: "Array of user documents (empty array if no documents found for the user)",
               content: {
                 "application/json": {
                   schema: {
@@ -1404,6 +1426,67 @@ export const createSwaggerSpec = ({ serverUrl } = {}) => {
                     },
                     required: ["data"],
                   },
+                  examples: {
+                    withDocuments: {
+                      summary: "User has documents",
+                      value: {
+                        data: [
+                          {
+                            _id: "507f1f77bcf86cd799439012",
+                            user: {
+                              _id: "507f1f77bcf86cd799439011",
+                              fullName: "John Doe",
+                              email: "john@example.com",
+                              role: "renter",
+                              status: "verified"
+                            },
+                            documentType: "national_id",
+                            identityNumber: "123456789",
+                            drivingLicenseNumber: "DL123456",
+                            frontImageUrl: "uploads/documents/front-123.jpg",
+                            backImageUrl: "uploads/documents/back-123.jpg",
+                            drivingLicenseImageUrl: "uploads/documents/dl-123.jpg",
+                            status: "verified",
+                            submittedAt: "2025-11-01T10:00:00.000Z",
+                            verifiedAt: "2025-11-02T14:30:00.000Z",
+                            createdAt: "2025-11-01T10:00:00.000Z",
+                            updatedAt: "2025-11-02T14:30:00.000Z"
+                          }
+                        ]
+                      }
+                    },
+                    noDocuments: {
+                      summary: "User has no documents",
+                      value: {
+                        data: []
+                      }
+                    }
+                  }
+                },
+              },
+            },
+            404: {
+              description: "User not found when filtering by email",
+              content: {
+                "application/json": {
+                  schema: { 
+                    type: "object",
+                    properties: {
+                      message: {
+                        type: "string",
+                        description: "Error message"
+                      },
+                      email: {
+                        type: "string",
+                        description: "The email that was not found"
+                      }
+                    },
+                    required: ["message"]
+                  },
+                  example: {
+                    message: "User not found with provided email",
+                    email: "nonexistent@example.com"
+                  }
                 },
               },
             },
