@@ -1,15 +1,16 @@
 import mongoose from "mongoose";
+import {
+  BOOKING_STATUS,
+  PAYMENT_METHOD,
+  RESERVATION_HOLD_MINUTES,
+  VEHICLE_STATUS,
+} from "../constants/statusCodes.js";
 import Booking from "../models/booking.model.js";
 import Brand from "../models/brand.model.js";
 import Station from "../models/station.model.js";
-import Vehicle from "../models/vehicle.model.js";
 import User from "../models/user.model.js";
+import Vehicle from "../models/vehicle.model.js";
 import { manualReleaseReservation } from "../services/reservationService.js";
-import {
-  BOOKING_STATUS,
-  VEHICLE_STATUS,
-  RESERVATION_HOLD_MINUTES,
-} from "../constants/statusCodes.js";
 
 /**
  * Tính số ngày thuê
@@ -23,7 +24,12 @@ const calculateRentalDays = (pickupDateTime, returnDateTime) => {
 /**
  * Tính giá
  */
-const calculatePricing = (brand, rentalDays, pickupDateTime, returnDateTime) => {
+const calculatePricing = (
+  brand,
+  rentalDays,
+  pickupDateTime,
+  returnDateTime
+) => {
   const basePrice = brand.baseDailyRate * rentalDays;
 
   // Tính phụ phí cuối tuần
@@ -31,7 +37,8 @@ const calculatePricing = (brand, rentalDays, pickupDateTime, returnDateTime) => 
   const current = new Date(pickupDateTime);
   while (current < returnDateTime) {
     const dayOfWeek = current.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) { // Sunday = 0, Saturday = 6
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      // Sunday = 0, Saturday = 6
       additionalFees += 500; //TODO: Phụ phí 100k/ngày cuối tuần
     }
     current.setDate(current.getDate() + 1);
@@ -73,12 +80,16 @@ const reserveVehicle = async (vehicleId, bookingId) => {
     }
 
     if (vehicle.status !== VEHICLE_STATUS.AVAILABLE) {
-      throw new Error(`Vehicle ${vehicle.plateNo} đang ở trạng thái: ${vehicle.status}`);
+      throw new Error(
+        `Vehicle ${vehicle.plateNo} đang ở trạng thái: ${vehicle.status}`
+      );
     }
 
     // Tính thời gian reservation (30 phút để user thanh toán)
     const reservedUntil = new Date();
-    reservedUntil.setMinutes(reservedUntil.getMinutes() + RESERVATION_HOLD_MINUTES);
+    reservedUntil.setMinutes(
+      reservedUntil.getMinutes() + RESERVATION_HOLD_MINUTES
+    );
 
     // Update vehicle status to reserved
     vehicle.status = VEHICLE_STATUS.RESERVED;
@@ -87,9 +98,12 @@ const reserveVehicle = async (vehicleId, bookingId) => {
 
     await vehicle.save();
 
-    console.log(`🔒 Vehicle reserved: ${vehicle.plateNo} until ${reservedUntil.toISOString()}`);
+    console.log(
+      `🔒 Vehicle reserved: ${
+        vehicle.plateNo
+      } until ${reservedUntil.toISOString()}`
+    );
     return vehicle;
-
   } catch (error) {
     console.error("❌ Reserve vehicle failed:", error.message);
     return null;
@@ -105,20 +119,21 @@ const autoAssignAndReserveVehicle = async (brandId, stationId, bookingId) => {
     const vehicle = await Vehicle.findOne({
       brand: brandId,
       stationId: stationId,
-      status: VEHICLE_STATUS.AVAILABLE
+      status: VEHICLE_STATUS.AVAILABLE,
     }).sort({
-      batteryPercent: -1,  // Ưu tiên xe pin cao
-      createdAt: 1         // Hoặc xe cũ nhất (FIFO)
+      batteryPercent: -1, // Ưu tiên xe pin cao
+      createdAt: 1, // Hoặc xe cũ nhất (FIFO)
     });
 
     if (!vehicle) {
-      console.log(`⚠️ No available vehicle found for brand ${brandId} at station ${stationId}`);
+      console.log(
+        `⚠️ No available vehicle found for brand ${brandId} at station ${stationId}`
+      );
       return null;
     }
 
     // Reserve vehicle này
     return await reserveVehicle(vehicle._id, bookingId);
-
   } catch (error) {
     console.error("❌ Auto assign vehicle failed:", error.message);
     return null;
@@ -130,12 +145,17 @@ const normalizeObjectId = (value) => {
     return null;
   }
   if (mongoose.isValidObjectId(value)) {
-    return typeof value === "string" ? new mongoose.Types.ObjectId(value) : value;
+    return typeof value === "string"
+      ? new mongoose.Types.ObjectId(value)
+      : value;
   }
   return null;
 };
 
-const createStatusEntry = (status, { userId = null, note = null, timestamp = new Date() } = {}) => ({
+const createStatusEntry = (
+  status,
+  { userId = null, note = null, timestamp = new Date() } = {}
+) => ({
   status,
   changedAt: timestamp,
   changedBy: normalizeObjectId(userId),
@@ -185,7 +205,15 @@ const normalizeBookingStatusValue = (value) => {
 const transitionBookingStatus = (
   booking,
   status,
-  { userId = null, note = null, timestamp = new Date(), paymentDueAt = null, paymentReference = null, reservationExpiresAt = null, rejectionReason = null } = {}
+  {
+    userId = null,
+    note = null,
+    timestamp = new Date(),
+    paymentDueAt = null,
+    paymentReference = null,
+    reservationExpiresAt = null,
+    rejectionReason = null,
+  } = {}
 ) => {
   if (!booking.statusHistory) {
     booking.statusHistory = [];
@@ -202,7 +230,8 @@ const transitionBookingStatus = (
   switch (status) {
     case BOOKING_STATUS.APPROVED:
       booking.approvedAt = timestamp;
-      booking.approvedBy = normalizeObjectId(userId) ?? booking.approvedBy ?? null;
+      booking.approvedBy =
+        normalizeObjectId(userId) ?? booking.approvedBy ?? null;
       booking.rejectedAt = null;
       booking.rejectedBy = null;
       booking.rejectionReason = null;
@@ -284,9 +313,16 @@ const validateBookingData = async (data) => {
   }
 
   // Validate payment method
-  const validPaymentMethods = ["online", "cash", "bank_transfer", "credit_card", "e_wallet"];
-  if (!data.paymentMethod || !validPaymentMethods.includes(data.paymentMethod)) {
-    errors.push(`Phương thức thanh toán không hợp lệ. Chỉ chấp nhận: ${validPaymentMethods.join(", ")}`);
+  const validPaymentMethods = Object.values(PAYMENT_METHOD);
+  if (
+    !data.paymentMethod ||
+    !validPaymentMethods.includes(data.paymentMethod)
+  ) {
+    errors.push(
+      `Phương thức thanh toán không hợp lệ. Chỉ chấp nhận: ${validPaymentMethods.join(
+        ", "
+      )}`
+    );
   }
 
   // Validate agreements
@@ -333,7 +369,10 @@ const validateBookingData = async (data) => {
 
   // Validate station exists (support both ObjectId and code)
   let station;
-  if (mongoose.Types.ObjectId.isValid(data.pickupStation) && data.pickupStation.length === 24) {
+  if (
+    mongoose.Types.ObjectId.isValid(data.pickupStation) &&
+    data.pickupStation.length === 24
+  ) {
     // If it's a valid ObjectId format
     station = await Station.findById(data.pickupStation);
   } else {
@@ -374,7 +413,10 @@ const validateBookingData = async (data) => {
  */
 export const createBooking = async (req, res, next) => {
   try {
-    console.log('📥 Received booking request:', JSON.stringify(req.body, null, 2));
+    console.log(
+      "📥 Received booking request:",
+      JSON.stringify(req.body, null, 2)
+    );
 
     const {
       // Thông tin khách hàng (từ form FE)
@@ -390,7 +432,7 @@ export const createBooking = async (req, res, next) => {
       agreedToPaymentTerms,
       agreedToDataSharing,
       // Optional fields
-      renter = null,           // ObjectId nếu user đã đăng nhập
+      renter = null, // ObjectId nếu user đã đăng nhập
       surchargeAmount = 0,
       vehicle = null,
       notes = null,
@@ -427,7 +469,7 @@ export const createBooking = async (req, res, next) => {
     });
 
     if (!validation.valid) {
-      console.log('❌ Validation failed:', validation.errors);
+      console.log("❌ Validation failed:", validation.errors);
       return res.status(400).json({
         success: false,
         message: "Dữ liệu không hợp lệ",
@@ -454,14 +496,24 @@ export const createBooking = async (req, res, next) => {
       }
     }
 
-    const { brand: brandDoc, station, vehicle: vehicleDoc, pickupDateTime } = validation;
+    const {
+      brand: brandDoc,
+      station,
+      vehicle: vehicleDoc,
+      pickupDateTime,
+    } = validation;
 
     // Tính ngày trả xe dự kiến
     const returnTimeExpected = new Date(pickupDateTime);
     returnTimeExpected.setDate(returnTimeExpected.getDate() + rentalDays);
 
     // Tính giá chi tiết sử dụng logic có sẵn
-    const pricing = calculatePricing(brandDoc, rentalDays, pickupDateTime, returnTimeExpected);
+    const pricing = calculatePricing(
+      brandDoc,
+      rentalDays,
+      pickupDateTime,
+      returnTimeExpected
+    );
 
     // Map pricing sang format mới
     const baseAmount = pricing.basePrice;
@@ -531,7 +583,11 @@ export const createBooking = async (req, res, next) => {
       reservedVehicle = await reserveVehicle(vehicleDoc._id, booking._id);
     } else {
       // Nếu chưa chọn xe, tự động tìm và reserve xe available cùng brand/station
-      reservedVehicle = await autoAssignAndReserveVehicle(brandDoc._id, station._id, booking._id);
+      reservedVehicle = await autoAssignAndReserveVehicle(
+        brandDoc._id,
+        station._id,
+        booking._id
+      );
     }
 
     if (reservedVehicle) {
@@ -539,9 +595,13 @@ export const createBooking = async (req, res, next) => {
       booking.vehicle = reservedVehicle._id;
       await booking.save();
 
-      console.log(`✅ Vehicle reserved: ${reservedVehicle.plateNo} (${reservedVehicle._id}) for booking ${booking.bookingCode}`);
+      console.log(
+        `✅ Vehicle reserved: ${reservedVehicle.plateNo} (${reservedVehicle._id}) for booking ${booking.bookingCode}`
+      );
     } else {
-      console.log(`⚠️ No vehicle available to reserve for booking ${booking.bookingCode}`);
+      console.log(
+        `⚠️ No vehicle available to reserve for booking ${booking.bookingCode}`
+      );
     }
 
     // Populate để trả về đầy đủ thông tin
@@ -553,7 +613,9 @@ export const createBooking = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: reservedVehicle ? "Tạo booking và reserve xe thành công" : "Tạo booking thành công (chưa có xe available)",
+      message: reservedVehicle
+        ? "Tạo booking và reserve xe thành công"
+        : "Tạo booking thành công (chưa có xe available)",
       data: {
         _id: populatedBooking._id,
         bookingCode: populatedBooking.bookingCode,
@@ -578,25 +640,28 @@ export const createBooking = async (req, res, next) => {
         notes: populatedBooking.notes,
         createdAt: populatedBooking.createdAt,
         // 🚗 Thông tin reservation
-        reservation: reservedVehicle ? {
-          vehicleReserved: true,
-          reservedUntil: reservedVehicle.reservedUntil,
-          paymentTimeLimit: "30 phút",
-          message: `Xe ${reservedVehicle.plateNo} đã được giữ cho bạn. Vui lòng thanh toán trong 30 phút.`
-        } : {
-          vehicleReserved: false,
-          message: "Hiện không có xe available. Chúng tôi sẽ gán xe khi có xe trống."
-        }
+        reservation: reservedVehicle
+          ? {
+              vehicleReserved: true,
+              reservedUntil: reservedVehicle.reservedUntil,
+              paymentTimeLimit: "30 phút",
+              message: `Xe ${reservedVehicle.plateNo} đã được giữ cho bạn. Vui lòng thanh toán trong 30 phút.`,
+            }
+          : {
+              vehicleReserved: false,
+              message:
+                "Hiện không có xe available. Chúng tôi sẽ gán xe khi có xe trống.",
+            },
       },
     });
   } catch (error) {
-    console.error('❌ Booking creation error:', error);
-    console.error('Error stack:', error.stack);
+    console.error("❌ Booking creation error:", error);
+    console.error("Error stack:", error.stack);
 
     // Xử lý validation errors từ Mongoose
     if (error.name === "ValidationError") {
       const errors = Object.values(error.errors).map((err) => err.message);
-      console.log('Mongoose validation errors:', errors);
+      console.log("Mongoose validation errors:", errors);
       return res.status(400).json({
         success: false,
         message: "Dữ liệu không hợp lệ",
@@ -650,7 +715,9 @@ export const listBookings = async (req, res, next) => {
       if (!normalizedStatus) {
         return res.status(400).json({
           success: false,
-          message: `status không hợp lệ. Giá trị hợp lệ: ${Array.from(BOOKING_STATUS_SET).join(", ")}`,
+          message: `status không hợp lệ. Giá trị hợp lệ: ${Array.from(
+            BOOKING_STATUS_SET
+          ).join(", ")}`,
         });
       }
       filter.status = normalizedStatus;
@@ -720,17 +787,25 @@ export const cancelBooking = async (req, res, next) => {
       });
     }
 
-    if ([BOOKING_STATUS.SUCCESS, BOOKING_STATUS.CANCELLED].includes(booking.status)) {
+    if (
+      [BOOKING_STATUS.SUCCESS, BOOKING_STATUS.CANCELLED].includes(
+        booking.status
+      )
+    ) {
       return res.status(400).json({
         success: false,
-        message: `Không thể hủy booking đã ${booking.status === BOOKING_STATUS.SUCCESS ? "hoàn thành" : "hủy"}`,
+        message: `Không thể hủy booking đã ${
+          booking.status === BOOKING_STATUS.SUCCESS ? "hoàn thành" : "hủy"
+        }`,
       });
     }
 
     // 🔓 Release reservation nếu có xe đang được reserve
     const releaseResult = await manualReleaseReservation(booking._id);
     if (releaseResult) {
-      console.log(`🔓 Released reservation for cancelled booking ${booking.bookingCode}`);
+      console.log(
+        `🔓 Released reservation for cancelled booking ${booking.bookingCode}`
+      );
     }
 
     const now = new Date();
@@ -740,7 +815,7 @@ export const cancelBooking = async (req, res, next) => {
         timestamp: now,
         userId: req.user?._id ?? null,
         note: "Booking cancelled by user",
-      }),
+      })
     );
     booking.markModified?.("statusHistory");
     booking.status = BOOKING_STATUS.CANCELLED;
@@ -750,7 +825,9 @@ export const cancelBooking = async (req, res, next) => {
 
     res.json({
       success: true,
-      message: "Hủy booking thành công" + (releaseResult ? " và đã trả xe về available" : ""),
+      message:
+        "Hủy booking thành công" +
+        (releaseResult ? " và đã trả xe về available" : ""),
       data: booking,
     });
   } catch (error) {
@@ -783,7 +860,9 @@ export const updateBookingStatus = async (req, res, next) => {
     if (!normalizedStatus || !MANUAL_BOOKING_STATUS_SET.has(normalizedStatus)) {
       return res.status(400).json({
         success: false,
-        message: `Trạng thái không hợp lệ. Chỉ chấp nhận: ${Array.from(MANUAL_BOOKING_STATUS_SET).join(", ")}`,
+        message: `Trạng thái không hợp lệ. Chỉ chấp nhận: ${Array.from(
+          MANUAL_BOOKING_STATUS_SET
+        ).join(", ")}`,
       });
     }
 
@@ -804,7 +883,10 @@ export const updateBookingStatus = async (req, res, next) => {
           throw new Error("Vehicle ID không hợp lệ");
         }
 
-        if (booking.vehicle && booking.vehicle.toString() !== vehicleId.toString()) {
+        if (
+          booking.vehicle &&
+          booking.vehicle.toString() !== vehicleId.toString()
+        ) {
           await manualReleaseReservation(booking._id);
         }
 
@@ -814,14 +896,21 @@ export const updateBookingStatus = async (req, res, next) => {
         }
         if (
           vehicle.status !== VEHICLE_STATUS.AVAILABLE &&
-          !(vehicle.status === VEHICLE_STATUS.RESERVED && vehicle.reservedBy?.toString() === booking._id.toString())
+          !(
+            vehicle.status === VEHICLE_STATUS.RESERVED &&
+            vehicle.reservedBy?.toString() === booking._id.toString()
+          )
         ) {
-          throw new Error(`Xe hiện đang ở trạng thái: ${vehicle.status}, không thể gán cho booking`);
+          throw new Error(
+            `Xe hiện đang ở trạng thái: ${vehicle.status}, không thể gán cho booking`
+          );
         }
         if (vehicle.brand.toString() !== booking.brand.toString()) {
           throw new Error("Xe không thuộc brand đã đặt");
         }
-        if (vehicle.stationId?.toString() !== booking.pickupStation.toString()) {
+        if (
+          vehicle.stationId?.toString() !== booking.pickupStation.toString()
+        ) {
           throw new Error("Xe không ở station đã chọn");
         }
 
@@ -834,7 +923,8 @@ export const updateBookingStatus = async (req, res, next) => {
         }
 
         booking.vehicle = reservedVehicle._id;
-        booking.reservationExpiresAt = reservedVehicle.reservedUntil ?? booking.reservationExpiresAt;
+        booking.reservationExpiresAt =
+          reservedVehicle.reservedUntil ?? booking.reservationExpiresAt;
         return reservedVehicle;
       }
 
@@ -848,7 +938,8 @@ export const updateBookingStatus = async (req, res, next) => {
       }
       if (
         vehicle.status === VEHICLE_STATUS.AVAILABLE ||
-        (vehicle.status === VEHICLE_STATUS.RESERVED && vehicle.reservedBy?.toString() === booking._id.toString())
+        (vehicle.status === VEHICLE_STATUS.RESERVED &&
+          vehicle.reservedBy?.toString() === booking._id.toString())
       ) {
         if (vehicle.status === VEHICLE_STATUS.AVAILABLE) {
           const reserved = await reserveVehicle(vehicle._id, booking._id);
@@ -856,7 +947,8 @@ export const updateBookingStatus = async (req, res, next) => {
             booking.reservationExpiresAt = reserved.reservedUntil;
           }
         } else {
-          booking.reservationExpiresAt = vehicle.reservedUntil ?? booking.reservationExpiresAt;
+          booking.reservationExpiresAt =
+            vehicle.reservedUntil ?? booking.reservationExpiresAt;
         }
         return vehicle;
       }
@@ -894,7 +986,9 @@ export const updateBookingStatus = async (req, res, next) => {
             note,
             reservationExpiresAt: booking.reservationExpiresAt,
           });
-          markWaitingPayment({ paymentDueAt: paymentDueAt ? new Date(paymentDueAt) : null });
+          markWaitingPayment({
+            paymentDueAt: paymentDueAt ? new Date(paymentDueAt) : null,
+          });
           break;
         }
 
@@ -920,18 +1014,29 @@ export const updateBookingStatus = async (req, res, next) => {
         }
 
         case BOOKING_STATUS.WAITING_PAYMENT: {
-          if (![BOOKING_STATUS.APPROVED, BOOKING_STATUS.WAITING_PAYMENT].includes(currentStatus)) {
+          if (
+            ![BOOKING_STATUS.APPROVED, BOOKING_STATUS.WAITING_PAYMENT].includes(
+              currentStatus
+            )
+          ) {
             return res.status(400).json({
               success: false,
               message: `Chỉ chuyển sang trạng thái ${BOOKING_STATUS.WAITING_PAYMENT} khi booking đã được phê duyệt`,
             });
           }
-          markWaitingPayment({ note, paymentDueAt: paymentDueAt ? new Date(paymentDueAt) : null });
+          markWaitingPayment({
+            note,
+            paymentDueAt: paymentDueAt ? new Date(paymentDueAt) : null,
+          });
           break;
         }
 
         case BOOKING_STATUS.PAID: {
-          if (![BOOKING_STATUS.WAITING_PAYMENT, BOOKING_STATUS.APPROVED].includes(currentStatus)) {
+          if (
+            ![BOOKING_STATUS.WAITING_PAYMENT, BOOKING_STATUS.APPROVED].includes(
+              currentStatus
+            )
+          ) {
             return res.status(400).json({
               success: false,
               message: `Chỉ có thể đánh dấu ${BOOKING_STATUS.PAID} khi booking đang chờ thanh toán`,
@@ -997,7 +1102,8 @@ export const updateBookingStatus = async (req, res, next) => {
     } catch (transitionError) {
       return res.status(400).json({
         success: false,
-        message: transitionError.message || "Không thể cập nhật trạng thái booking",
+        message:
+          transitionError.message || "Không thể cập nhật trạng thái booking",
       });
     }
 
